@@ -563,12 +563,6 @@ part of the system.
   zero.** `DINERO`, `UP` and the demo OFT read "no FTSO feed". A blank or a `$0`
   in that slot would be a lie of a different kind.
 
-  ⚠️ **This landed in the repository on 2026-08-08 and reaches the hosted page on
-  the next deploy of the backend and the front end.** If you are reading this
-  before that deploy, `/api/sentinel/status` carries no `exposure` field and the
-  page shows no exposure column. Everything above is in this tree and under test;
-  run it yourself with the recipe below rather than taking the hosted page as the
-  measure of it.
 
   **An empty contract is not a safe contract, and the first version of this
   section implied it was.** A lockbox adapter caps the damage: a forged inbound
