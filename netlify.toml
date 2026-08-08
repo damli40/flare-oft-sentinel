@@ -1,0 +1,40 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Keep the whole site out of search engines. This header and the <meta> tag in
+# the two HTML entries are the only two things that can keep a page out of an
+# index, and this is the one that also covers responses a crawler gets without
+# ever reading any HTML — the catch-all rewrite above means every path returns
+# 200, so this header has to be unconditional.
+#
+#   1. <meta name="robots"> in frontend/index.html and frontend/flare.html
+#   2. this header
+#   3. frontend/public/robots.txt — which ALLOWS crawling, deliberately. It is
+#      not a third lock. robots.txt governs fetching, and a `Disallow: /` there
+#      would stop the crawler before it could ever see 1 or 2, leaving the URL
+#      indexable URL-only as soon as an external link points at it. Permitting
+#      the fetch is the precondition for the two layers above working at all.
+#
+# ⚠️ This block only applies on a REPO-CONNECTED build. The live site is deployed
+# as a pre-built directory from a git worktree, and the CLI resolves netlify.toml
+# by walking up out of the worktree — measured: it read a different branch's file
+# and this header never reached the response. `frontend/public/_headers` carries
+# the same header inside the publish directory for that path. Both are needed;
+# they must keep saying the same thing, and netlify.toml wins if they differ.
+#
+# Deliberately absent: auth, a password, a token, a query-param check, an Edge
+# Function. The link has to open for anyone who has it.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

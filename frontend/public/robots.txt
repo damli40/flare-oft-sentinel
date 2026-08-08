@@ -1,0 +1,27 @@
+# This site is handed out as a link. It is not meant to be found by searching.
+#
+# ⚠️ Read this before "hardening" it back to `Disallow: /`. That is what it said
+# first, and it was the one line here able to DEFEAT the two layers that do the
+# actual work. robots.txt governs CRAWLING, not indexing: a disallowed URL is
+# never fetched, so the crawler never sees the <meta name="robots"> tag in the
+# HTML and never sees the X-Robots-Tag response header — and a URL discovered
+# from an external link (the program listing, the repo, a post) can still be
+# indexed URL-only, with no snippet. That is exactly the outcome the other two
+# layers exist to prevent, and this file was the thing permitting it.
+#
+# So the three are NOT independent and NOT belt-and-braces. They are:
+#
+#   this file   — permits the fetch, which is the precondition for the other two
+#   meta tag    — frontend/index.html and frontend/flare.html
+#   response
+#   header      — X-Robots-Tag: noindex, nofollow on every path (netlify.toml for
+#                 a repo-connected build, _headers beside this file for a
+#                 pre-built deploy)
+#
+# Only the last two can keep a page out of an index, and both of them need the
+# crawler to read the response first. This file's job is to let it.
+#
+# Deliberately NOT here: any auth, password, token or query-param gate. Anyone
+# with the link must get straight in.
+User-agent: *
+Allow: /

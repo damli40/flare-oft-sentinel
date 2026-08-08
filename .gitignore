@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.flare.example
+contracts/artifacts/
+contracts/cache/
+*.log
+.DS_Store

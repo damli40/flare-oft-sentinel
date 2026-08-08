@@ -1,0 +1,22 @@
+{
+  "name": "@oft-sentinel/mcp",
+  "version": "0.1.0",
+  "description": "Read+validate MCP server over OFT Sentinel — check a LayerZero OFT's security config before acting on it",
+  "type": "module",
+  "bin": { "oft-sentinel-mcp": "dist/index.js" },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "viem": "^2.21.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

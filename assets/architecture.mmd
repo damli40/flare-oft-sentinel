@@ -1,0 +1,80 @@
+%% OFT Sentinel on Flare — one cycle, end to end.
+%% Rendered to assets/architecture.png. Regenerate with:
+%%   npx -y @mermaid-js/mermaid-cli -i assets/architecture.mmd -o assets/architecture.png -b white -s 2
+flowchart TB
+    subgraph pick["1 · Choose what to watch"]
+        direction LR
+        dune["Dune query 8185729<br/>at least 10 LayerZero<br/>messages in 7 days"]
+        pinned["WATCH_PINNED<br/>4 hand-pinned OFTs<br/>(incl. our demo OFT)"]
+        scope["watch-scope.ts<br/>WATCH_CHAINS allowlist"]
+        dune --> scope
+        pinned --> scope
+    end
+
+    subgraph read["2 · Read the live configuration"]
+        direction LR
+        rpc["Flare Mainnet<br/>3 RPCs, 3 providers, quorum<br/>chain-registry.json"]
+        meta["LayerZero DVN metadata<br/>public API<br/>chain coverage grows over time"]
+        lz["lz-config.ts<br/>one snapshot per corridor:<br/>DVNs, libraries, confirmations"]
+        rpc --> lz
+        meta --> lz
+    end
+
+    subgraph rules["3 · Score it"]
+        direction LR
+        cust["custody.ts<br/>operator declarations<br/>ships empty"]
+        drift["drift.ts · RULES_VERSION 5.0.0<br/>fixed checks, no LLM"]
+        score["score.ts<br/>one deduction per check,<br/>at its worst severity"]
+        cust --> drift
+        drift --> score
+    end
+
+    gate{{"ATTEST_SCOPE = allowlist<br/>+ ATTEST_PINNED<br/>fails closed on unset,<br/>empty or unrecognised"}}
+    reg[("AuditRegistry<br/>Flare Mainnet · chainId 14<br/>0x2d2b385e…2Dd144")]
+    nosign["no transaction<br/>watched and scored,<br/>never signed"]
+    api["GET /api/sentinel/status<br/>the whole read,<br/>nothing filtered out"]
+
+    filt{{"isDemoAsset()<br/>chain + address from<br/>the instance's own pin<br/>fails closed"}}
+    ours["MOFT, ours<br/>full findings, DVN names,<br/>attestation link"]
+    theirs["any third-party OFT<br/>same score, same band,<br/>finding count, corridor<br/>structure. No finding text,<br/>no operator names."]
+
+    agent["an agent, before it deploys<br/>mcp/ in this repo · 6 read and validate tools<br/>no write path, no private key"]
+    val["POST /api/sentinel/validate<br/>pure: no attestation, no alert,<br/>no stored state<br/>free, no key, X402_ENABLED=false"]
+    agent --> val
+    val -.-> rules
+
+    tis["tis[] · one entry per fixable finding<br/>intent, the state read, the state wanted,<br/>and the score that fix would produce"]
+    fix["ROADMAP, NOT BUILT<br/>emit the setConfig call itself,<br/>so an operator reviews a transaction<br/>instead of a description of one.<br/>Read tools stay read tools."]
+
+    scope --> read
+    lz --> rules
+    score --> gate
+    score --> api
+    score --> tis
+    tis -.->|"the last step"| fix
+    gate -->|"the demo OFT we deployed"| reg
+    gate -.->|"the other five"| nosign
+    api --> filt
+    filt -->|ours| ours
+    filt -->|theirs| theirs
+
+    classDef stage fill:#ffffff,stroke:#c2c2d2,color:#1b1b28
+    classDef gateStyle fill:#fff1d9,stroke:#d08b12,color:#3a2a06,font-weight:bold
+    classDef chain fill:#e3eeff,stroke:#3f74c8,color:#0d233f
+    classDef quiet fill:#f0f0f0,stroke:#b4b4b4,color:#3d3d3d
+    class dune,pinned,scope,rpc,meta,lz,cust,drift,score,api,ours,theirs stage
+    classDef preflight fill:#eef7ee,stroke:#5a9c5a,color:#143014
+    class agent,val preflight
+    class tis stage
+    %% Dashed and grey so nothing here can be mistaken for something that runs.
+    classDef roadmap fill:#fafafa,stroke:#9a9aa8,color:#55555f,stroke-dasharray: 6 4
+    class fix roadmap
+    class gate,filt gateStyle
+    class reg chain
+    class nosign quiet
+
+    %% The three numbered stages read as one surface; the two GATES are the
+    %% claims worth looking at, so only they carry colour.
+    style pick fill:#f6f6fa,stroke:#dcdce6,color:#3a3a4a
+    style read fill:#f6f6fa,stroke:#dcdce6,color:#3a3a4a
+    style rules fill:#f6f6fa,stroke:#dcdce6,color:#3a3a4a

@@ -1,0 +1,3469 @@
+{
+  "generatedAt": "2026-07-19T02:01:02.909Z",
+  "source": "https://metadata.layerzero-api.com/v1/metadata/deployments + verified RPC sweep (/Users/Admin/Desktop/oft-audit-product/.worktrees/multicall-batching/docs/superpowers/specs/2026-07-08-chain-rpc-sweep.json)",
+  "chains": {
+    "abstract": {
+      "chainKey": "abstract",
+      "eid": 30324,
+      "chainId": 2741,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://api.mainnet.abs.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://abstract.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://abstract.api.onfinality.io/public",
+          "provider": "onfinality"
+        },
+        {
+          "url": "https://abstract-mainnet.gateway.tatum.io",
+          "provider": "tatum"
+        }
+      ],
+      "note": ""
+    },
+    "animechain": {
+      "chainKey": "animechain",
+      "eid": 30372,
+      "chainId": 69000,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://public-rpc.anime.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": "Only one public RPC is documented (official public-rpc.anime.xyz); no independent mirror found."
+    },
+    "ape": {
+      "chainKey": "ape",
+      "eid": 30312,
+      "chainId": 33139,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://apechain.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.apechain.com",
+          "provider": "official"
+        }
+      ],
+      "note": "Only 2 keyless endpoints found (dRPC + official ApeChain RPC); Ankr/1rpc/blastapi variants tried but all key-gated or unsupported."
+    },
+    "apexfusionnexus": {
+      "chainKey": "apexfusionnexus",
+      "eid": 30384,
+      "chainId": 9069,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.nexus.mainnet.apexfusion.org",
+          "provider": "official"
+        }
+      ],
+      "note": "Only the official RPC is keyless; the only other listed endpoint (Tenderly gateway) requires an access token in the URL path."
+    },
+    "arbitrum": {
+      "chainKey": "arbitrum",
+      "eid": 30110,
+      "chainId": 42161,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://arbitrum-one-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://arbitrum.meowrpc.com",
+          "provider": "meowrpc"
+        },
+        {
+          "url": "https://arbitrum-one.public.blastapi.io",
+          "provider": "blastapi"
+        },
+        {
+          "url": "https://arb1.arbitrum.io/rpc",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "arc": {
+      "chainKey": "arc",
+      "eid": 30417,
+      "chainId": 5042,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [],
+      "note": "Arc mainnet (chain id 5042) has no public RPC yet; Circle docs (docs.arc.io) confirm only Arc Testnet (5042002) endpoints are published as of Jul 2026 ('Mainnet endpoints... published separately when available'). 0 verified."
+    },
+    "astar": {
+      "chainKey": "astar",
+      "eid": 30210,
+      "chainId": 592,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://evm.astar.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://astar.api.onfinality.io/public",
+          "provider": "onfinality"
+        },
+        {
+          "url": "https://1rpc.io/astr",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "ault": {
+      "chainKey": "ault",
+      "eid": 30413,
+      "chainId": 904,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [],
+      "note": "Ault Blockchain (Cosmos+EVM L1) has no free/keyless public RPC found; only paid Quicknode infra is documented. 0 verified."
+    },
+    "aurora": {
+      "chainKey": "aurora",
+      "eid": 30211,
+      "chainId": 1313161554,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mainnet.aurora.dev",
+          "provider": "official"
+        },
+        {
+          "url": "https://aurora.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://1rpc.io/aurora",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://aurora-mainnet.gateway.tatum.io",
+          "provider": "tatum"
+        }
+      ],
+      "note": ""
+    },
+    "avalanche": {
+      "chainKey": "avalanche",
+      "eid": 30106,
+      "chainId": 43114,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://avalanche-mainnet.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://avalanche.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://avalanche-c-chain-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://avalanche.api.onfinality.io/public/ext/bc/C/rpc",
+          "provider": "onfinality"
+        }
+      ],
+      "note": ""
+    },
+    "bahamut": {
+      "chainKey": "bahamut",
+      "eid": 30363,
+      "chainId": 5165,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc1.bahamut.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc2.bahamut.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://bahamut.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "base": {
+      "chainKey": "base",
+      "eid": 30184,
+      "chainId": 8453,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://gateway.tenderly.co/public/base",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://base.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://base.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://1rpc.io/base",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "bb1": {
+      "chainKey": "bb1",
+      "eid": 30234,
+      "chainId": 2525,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://2525.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "chainKey 'bb1' = inEVM Mainnet (Injective L2, chain id 2525). The documented official RPC (mainnet.rpc.inevm.com/http) is dead (404). Only a thirdweb mirror verified working."
+    },
+    "beam": {
+      "chainKey": "beam",
+      "eid": 30198,
+      "chainId": 4337,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://subnets.avax.network/beam/mainnet/rpc",
+          "provider": "avalanche"
+        },
+        {
+          "url": "https://build.onbeam.com/rpc",
+          "provider": "onbeam"
+        },
+        {
+          "url": "https://beam.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "bera": {
+      "chainKey": "bera",
+      "eid": 30362,
+      "chainId": 80094,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.berachain.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://berachain.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://berachain-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://rpc.berachain-apis.com",
+          "provider": "berachain-apis.com"
+        }
+      ],
+      "note": ""
+    },
+    "bevm": {
+      "chainKey": "bevm",
+      "eid": 30317,
+      "chainId": 11501,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc-mainnet-2.geb.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc-mainnet-1.geb.network",
+          "provider": "official"
+        }
+      ],
+      "note": "3rd endpoint is a second BEVM-operated domain (bevm.io) alongside the two geb.network endpoints — all effectively the same operator; no true third-party mirror found."
+    },
+    "bitlayer": {
+      "chainKey": "bitlayer",
+      "eid": 30314,
+      "chainId": 200901,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/bitlayer",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://rpc.bitlayer.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.bitlayer-rpc.com",
+          "provider": "bitlayer-rpc.com"
+        },
+        {
+          "url": "https://rpc-bitlayer.rockx.com",
+          "provider": "rockx.com"
+        }
+      ],
+      "note": ""
+    },
+    "blast": {
+      "chainKey": "blast",
+      "eid": 30243,
+      "chainId": 81457,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://blast.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://blast-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://rpc.blast.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://blast.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "bob": {
+      "chainKey": "bob",
+      "eid": 30279,
+      "chainId": 60808,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://bob.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://bob.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.gobob.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://bob.rpc.sentio.xyz",
+          "provider": "sentio"
+        }
+      ],
+      "note": ""
+    },
+    "botanix": {
+      "chainKey": "botanix",
+      "eid": 30376,
+      "chainId": 3637,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/botanix_mainnet",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://rpc.botanixlabs.com",
+          "provider": "official"
+        }
+      ],
+      "note": "Only 2 keyless endpoints found (Ankr + official); no third independent provider located."
+    },
+    "bouncebit": {
+      "chainKey": "bouncebit",
+      "eid": 30293,
+      "chainId": 6001,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://fullnode-mainnet.bouncebitapi.com",
+          "provider": "official"
+        }
+      ],
+      "note": "Only the official fullnode RPC is documented/keyless for BounceBit mainnet."
+    },
+    "bsc": {
+      "chainKey": "bsc",
+      "eid": 30102,
+      "chainId": 56,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://bsc-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://bsc.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://bsc.meowrpc.com",
+          "provider": "meowrpc"
+        },
+        {
+          "url": "https://bsc-mainnet.public.blastapi.io",
+          "provider": "blastapi"
+        }
+      ],
+      "note": ""
+    },
+    "camp": {
+      "chainKey": "camp",
+      "eid": 30381,
+      "chainId": 484,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc-mainnet.campnetwork.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": "Only the current official RPC is keyless; Camp Network deprecated its old Gelato RaaS endpoint in June 2026."
+    },
+    "canto": {
+      "chainKey": "canto",
+      "eid": 30159,
+      "chainId": 7700,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://canto.gravitychain.io",
+          "provider": "gravitychain"
+        },
+        {
+          "url": "https://canto.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "Canto's RPC ecosystem has degraded — most historically-listed community endpoints (ansybl.io, nodestake.top, dexvaults.com, chandrastation.com, plexnode.org, dRPC, Polkachu, dteam) are dead or no longer serve EVM JSON-RPC. Only gravitychain.io and a thirdweb mirror verified working."
+    },
+    "celo": {
+      "chainKey": "celo",
+      "eid": 30125,
+      "chainId": 42220,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/celo",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://forno.celo.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://celo.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://celo.api.onfinality.io/public",
+          "provider": "onfinality"
+        }
+      ],
+      "note": ""
+    },
+    "chiliz": {
+      "chainKey": "chiliz",
+      "eid": 30409,
+      "chainId": 88888,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/chiliz",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://rpc.chiliz.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://chiliz.publicnode.com",
+          "provider": "publicnode"
+        }
+      ],
+      "note": ""
+    },
+    "citrea": {
+      "chainKey": "citrea",
+      "eid": 30403,
+      "chainId": 4114,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.mainnet.citrea.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": "Only the official Citrea RPC is documented; no independent mirror found (young chain)."
+    },
+    "codex": {
+      "chainKey": "codex",
+      "eid": 30323,
+      "chainId": 81224,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.codex.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": "Only the official Codex (Conduit OP-stack chain) RPC is documented/keyless."
+    },
+    "concrete": {
+      "chainKey": "concrete",
+      "eid": 30366,
+      "chainId": 12739,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [],
+      "note": "Concrete's own LayerZero OFT quickstart doc uses a literal 'https://INSERT-RPC' placeholder (no public RPC documented). Only candidate found (Tenderly gateway) requires an access-token path segment. 0 verified."
+    },
+    "conflux": {
+      "chainKey": "conflux",
+      "eid": 30212,
+      "chainId": 1030,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://evm.confluxrpc.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://conflux-espace.blockpi.network/v1/rpc/public",
+          "provider": "blockpi"
+        },
+        {
+          "url": "https://conflux-espace-public.unifra.io",
+          "provider": "unifra"
+        }
+      ],
+      "note": ""
+    },
+    "converge": {
+      "chainKey": "converge",
+      "eid": 30400,
+      "chainId": 432,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.nutriemp.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.nutriemp-chain.link",
+          "provider": "official"
+        }
+      ],
+      "note": "Both verified endpoints (rpc.nutriemp.com / rpc.nutriemp-chain.link) resolve chain id 432 correctly and match LayerZero's declared nativeChainId for chainKey 'converge', but public registries (chainlist/chainid.network) label chain id 432 as 'NutriEmp Chain', not the Ethena/Securitize-announced 'Converge' chain — flagging this naming discrepancy. Both endpoints appear to be the same operator (not independent of each other)."
+    },
+    "coredao": {
+      "chainKey": "coredao",
+      "eid": 30153,
+      "chainId": 1116,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/core",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://core.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.coredao.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://1rpc.io/core",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "cronosevm": {
+      "chainKey": "cronosevm",
+      "eid": 30359,
+      "chainId": 25,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://1rpc.io/cro",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://cronos-evm-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://evm.cronos.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://cronos.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "cronoszkevm": {
+      "chainKey": "cronoszkevm",
+      "eid": 30360,
+      "chainId": 388,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://cronos-zkevm.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://mainnet.zkevm.cronos.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://cronos-zkevm.rpc.sentio.xyz",
+          "provider": "sentio"
+        }
+      ],
+      "note": ""
+    },
+    "cyber": {
+      "chainKey": "cyber",
+      "eid": 30283,
+      "chainId": 7560,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.cyber.co",
+          "provider": "official"
+        },
+        {
+          "url": "https://cyber.alt.technology",
+          "provider": "official"
+        }
+      ],
+      "note": "Only official Cyber L2 endpoints found (rpc.cyber.co, cyber.alt.technology) — both operated by the Cyber team."
+    },
+    "degen": {
+      "chainKey": "degen",
+      "eid": 30267,
+      "chainId": 666666666,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.degen.tips",
+          "provider": "official"
+        },
+        {
+          "url": "https://degen-mainnet.g.alchemy.com/public",
+          "provider": "alchemy"
+        },
+        {
+          "url": "https://666666666.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "dexalot": {
+      "chainKey": "dexalot",
+      "eid": 30118,
+      "chainId": 432204,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://subnets.avax.network/dexalot/mainnet/rpc",
+          "provider": "avalanche"
+        },
+        {
+          "url": "https://dexalot-subnet.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "Only 2 independent providers found (Avalanche subnet infra + thirdweb)."
+    },
+    "dfk": {
+      "chainKey": "dfk",
+      "eid": 30115,
+      "chainId": 53935,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc",
+          "provider": "avalanche"
+        },
+        {
+          "url": "https://dfk-chain.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        },
+        {
+          "url": "https://53935.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "Only 2 independent providers found (Avalanche subnet infra + thirdweb); a second thirdweb subdomain was also verified but shares the same backend as the first, so it isn't counted as independent."
+    },
+    "dinari": {
+      "chainKey": "dinari",
+      "eid": 30385,
+      "chainId": 202110,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://subnets.avax.network/dinari/mainnet/rpc",
+          "provider": "avalanche"
+        }
+      ],
+      "note": "Only the Avalanche-subnet RPC (subnets.avax.network/dinari) is documented; LayerZero's own OFT quickstart for Dinari uses a literal 'https://INSERT-RPC' placeholder, confirming no other public RPC is published."
+    },
+    "dm2verse": {
+      "chainKey": "dm2verse",
+      "eid": 30315,
+      "chainId": 68770,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://68770.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "Official RPC (rpc.dm2verse.dmm.com) no longer resolves (DNS failure); only a thirdweb mirror verified working."
+    },
+    "doma": {
+      "chainKey": "doma",
+      "eid": 30393,
+      "chainId": 97477,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://doma.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.doma.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": "Only 2 keyless endpoints found (dRPC + official); no third independent provider located for this young chain."
+    },
+    "dos": {
+      "chainKey": "dos",
+      "eid": 30149,
+      "chainId": 7979,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://7979.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "ebi": {
+      "chainKey": "ebi",
+      "eid": 30282,
+      "chainId": 98881,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://98881.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 1 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "edu": {
+      "chainKey": "edu",
+      "eid": 30328,
+      "chainId": 41923,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.edu-chain.raas.gelato.cloud",
+          "provider": "official"
+        },
+        {
+          "url": "https://41923.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "eon": {
+      "chainKey": "eon",
+      "eid": 30215,
+      "chainId": 7332,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/horizen_eon",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://7332.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "ethereal": {
+      "chainKey": "ethereal",
+      "eid": 30391,
+      "chainId": 5064014,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ethereal.trade",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "ethereum": {
+      "chainKey": "ethereum",
+      "eid": 30101,
+      "chainId": 1,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mainnet.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://eth.meowrpc.com",
+          "provider": "meowrpc"
+        },
+        {
+          "url": "https://eth.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://ethereum-rpc.publicnode.com",
+          "provider": "publicnode"
+        }
+      ],
+      "note": ""
+    },
+    "etherlink": {
+      "chainKey": "etherlink",
+      "eid": 30292,
+      "chainId": 42793,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/etherlink_mainnet",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://node.mainnet.etherlink.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://42793.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "fantom": {
+      "chainKey": "fantom",
+      "eid": 30112,
+      "chainId": 250,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://fantom.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc2.fantom.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://1rpc.io/ftm",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://fantom.api.onfinality.io/public",
+          "provider": "onfinality"
+        }
+      ],
+      "note": ""
+    },
+    "flare": {
+      "chainKey": "flare",
+      "eid": 30295,
+      "chainId": 14,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://flare-api.flare.network/ext/C/rpc",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.ankr.com/flare",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://rpc.au.cc/flare",
+          "provider": "au"
+        }
+      ],
+      "note": ""
+    },
+    "flow": {
+      "chainKey": "flow",
+      "eid": 30336,
+      "chainId": 747,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mainnet.evm.nodes.onflow.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://747.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "fraxtal": {
+      "chainKey": "fraxtal",
+      "eid": 30255,
+      "chainId": 252,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://fraxtal.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://rpc.frax.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://fraxtal.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://fraxtal-rpc.publicnode.com",
+          "provider": "publicnode"
+        }
+      ],
+      "note": ""
+    },
+    "fuse": {
+      "chainKey": "fuse",
+      "eid": 30138,
+      "chainId": 122,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://fuse.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.fuse.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://fuse.liquify.com",
+          "provider": "liquify"
+        },
+        {
+          "url": "https://fuse.api.pocket.network",
+          "provider": "pocket"
+        }
+      ],
+      "note": ""
+    },
+    "gatelayer": {
+      "chainKey": "gatelayer",
+      "eid": 30389,
+      "chainId": 10088,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://gatelayer-mainnet.gatenode.cc",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "gensyn": {
+      "chainKey": "gensyn",
+      "eid": 30412,
+      "chainId": 685689,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://gensyn-mainnet.g.alchemy.com/public",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "glue": {
+      "chainKey": "glue",
+      "eid": 30342,
+      "chainId": 1300,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://1300.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 1 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "gnosis": {
+      "chainKey": "gnosis",
+      "eid": 30145,
+      "chainId": 100,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.gnosischain.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://gnosis-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://gnosis.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://1rpc.io/gnosis",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "goat": {
+      "chainKey": "goat",
+      "eid": 30361,
+      "chainId": 2345,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/goat_mainnet",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://goat-mainnet-alpha.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.goat.network",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "gravity": {
+      "chainKey": "gravity",
+      "eid": 30294,
+      "chainId": 1625,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/gravity",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://rpc.gravity.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://gravity-alpha.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://api.zan.top/public/gravity_alpha-mainnet",
+          "provider": "zan"
+        }
+      ],
+      "note": ""
+    },
+    "gunz": {
+      "chainKey": "gunz",
+      "eid": 30371,
+      "chainId": 43419,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.gunzchain.io/ext/bc/2M47TxWHGnhNtq6pM5zPXdATBtuqubxn5EPFgFmEawCQr9WFML/rpc",
+          "provider": "official"
+        },
+        {
+          "url": "https://43419.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "harmony": {
+      "chainKey": "harmony",
+      "eid": 30116,
+      "chainId": 1666600000,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://api.harmony.one",
+          "provider": "official"
+        },
+        {
+          "url": "https://harmony-0.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://1rpc.io/one",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://api.s0.t.hmny.io",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "hedera": {
+      "chainKey": "hedera",
+      "eid": 30316,
+      "chainId": 295,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mainnet.hashio.io/api",
+          "provider": "official"
+        },
+        {
+          "url": "https://hedera.linkpool.pro",
+          "provider": "linkpool"
+        },
+        {
+          "url": "https://295.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "hemi": {
+      "chainKey": "hemi",
+      "eid": 30329,
+      "chainId": 43111,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.hemi.network/rpc",
+          "provider": "official"
+        },
+        {
+          "url": "https://hemi.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://43111.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "homeverse": {
+      "chainKey": "homeverse",
+      "eid": 30265,
+      "chainId": 19011,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.mainnet.oasys.homeverse.games",
+          "provider": "official"
+        },
+        {
+          "url": "https://nodes.sequence.app/homeverse",
+          "provider": "sequence"
+        },
+        {
+          "url": "https://19011.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "horizen": {
+      "chainKey": "horizen",
+      "eid": 30399,
+      "chainId": 26514,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://horizen.calderachain.xyz/http",
+          "provider": "official"
+        },
+        {
+          "url": "https://26514.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "hubble": {
+      "chainKey": "hubble",
+      "eid": 30182,
+      "chainId": 1992,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://1992.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 1 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "humanity": {
+      "chainKey": "humanity",
+      "eid": 30382,
+      "chainId": 6985385,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://humanity-mainnet.g.alchemy.com/public",
+          "provider": "official"
+        },
+        {
+          "url": "https://6985385.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "hyperliquid": {
+      "chainKey": "hyperliquid",
+      "eid": 30367,
+      "chainId": 999,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://hyperliquid.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.nodeflare.app/hl/public",
+          "provider": "nodeflare"
+        },
+        {
+          "url": "https://hyperliquid-json-rpc.stakely.io",
+          "provider": "stakely"
+        },
+        {
+          "url": "https://hyperevm.rpc.sentio.xyz",
+          "provider": "sentio"
+        }
+      ],
+      "note": ""
+    },
+    "injectiveevm": {
+      "chainKey": "injectiveevm",
+      "eid": 30394,
+      "chainId": 1776,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://sentry.evm-rpc.injective.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://injectiveevm-rpc.polkachu.com",
+          "provider": "polkachu"
+        },
+        {
+          "url": "https://1776.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "ink": {
+      "chainKey": "ink",
+      "eid": 30339,
+      "chainId": 57073,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc-qnd.inkonchain.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://ink.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://ink.api.pocket.network",
+          "provider": "pocket"
+        },
+        {
+          "url": "https://rpc-gel.inkonchain.com",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "iota": {
+      "chainKey": "iota",
+      "eid": 30284,
+      "chainId": 8822,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://json-rpc.evm.iotaledger.net",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.ankr.com/iota_evm",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://8822.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "irys": {
+      "chainKey": "irys",
+      "eid": 30408,
+      "chainId": 3282,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://mainnet-beta-rpc.irys.xyz/v1/execution-rpc",
+          "provider": "official"
+        },
+        {
+          "url": "https://mainnet-beta-rpc-2.irys.xyz/v1/execution-rpc",
+          "provider": "official"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "islander": {
+      "chainKey": "islander",
+      "eid": 30330,
+      "chainId": 1480,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.vana.org",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "joc": {
+      "chainKey": "joc",
+      "eid": 30285,
+      "chainId": 81,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc-2.japanopenchain.org:8545",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc-3.japanopenchain.org",
+          "provider": "official"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "katana": {
+      "chainKey": "katana",
+      "eid": 30375,
+      "chainId": 747474,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.katana.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://katana.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://katana.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.katanarpc.com",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "kava": {
+      "chainKey": "kava",
+      "eid": 30177,
+      "chainId": 2222,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://kava-evm-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://kava.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.ankr.com/kava_evm",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://evm.kava-rpc.com",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "kite": {
+      "chainKey": "kite",
+      "eid": 30406,
+      "chainId": 2366,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/kite_mainnet",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://rpc.gokite.ai",
+          "provider": "official"
+        },
+        {
+          "url": "https://kite.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "klaytn": {
+      "chainKey": "klaytn",
+      "eid": 30150,
+      "chainId": 8217,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://klaytn.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://public-en.node.kaia.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.ankr.com/kaia",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://1rpc.io/klay",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "lens": {
+      "chainKey": "lens",
+      "eid": 30373,
+      "chainId": 232,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.lens.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://lens.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://232.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "lightlink": {
+      "chainKey": "lightlink",
+      "eid": 30309,
+      "chainId": 1890,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://replicator.phoenix.lightlink.io/rpc/v1",
+          "provider": "official"
+        },
+        {
+          "url": "https://1890.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 keyless public RPC(s) found/verified after extensive search (chainlist dataset + targeted web search + provider-pattern probing); chain has limited third-party RPC provider coverage"
+    },
+    "linea": {
+      "chainKey": "linea",
+      "eid": 30183,
+      "chainId": 59144,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://linea.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://linea-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://1rpc.io/linea",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://rpc.linea.build",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "lisk": {
+      "chainKey": "lisk",
+      "eid": 30321,
+      "chainId": 1135,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://lisk.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://rpc.api.lisk.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://lisk.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "loot": {
+      "chainKey": "loot",
+      "eid": 30197,
+      "chainId": 5151706,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://5151706.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "lyra": {
+      "chainKey": "lyra",
+      "eid": 30311,
+      "chainId": 957,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.lyra.finance",
+          "provider": "official"
+        },
+        {
+          "url": "https://957.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "manta": {
+      "chainKey": "manta",
+      "eid": 30217,
+      "chainId": 169,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://manta-pacific.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://manta-pacific.calderachain.xyz/http",
+          "provider": "official"
+        },
+        {
+          "url": "https://pacific-rpc.manta.network/http",
+          "provider": "official"
+        },
+        {
+          "url": "https://1rpc.io/manta",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "mantle": {
+      "chainKey": "mantle",
+      "eid": 30181,
+      "chainId": 5000,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mantle-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://mantle.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://mantle-public.nodies.app",
+          "provider": "nodies"
+        },
+        {
+          "url": "https://rpc.mantle.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "masa": {
+      "chainKey": "masa",
+      "eid": 30263,
+      "chainId": 13396,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://13396.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "megaeth": {
+      "chainKey": "megaeth",
+      "eid": 30398,
+      "chainId": 4326,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://megaeth.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://mainnet.megaeth.com/rpc",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc-megaeth-mainnet.globalstake.io",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "merlin": {
+      "chainKey": "merlin",
+      "eid": 30266,
+      "chainId": 4200,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.merlinchain.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://merlin.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://merlin.blockpi.network/v1/rpc/public",
+          "provider": "blockpi"
+        }
+      ],
+      "note": ""
+    },
+    "meter": {
+      "chainKey": "meter",
+      "eid": 30176,
+      "chainId": 82,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.meter.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://meter.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "metis": {
+      "chainKey": "metis",
+      "eid": 30151,
+      "chainId": 1088,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://metis-andromeda.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://metis-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://metis-public.nodies.app",
+          "provider": "nodies"
+        },
+        {
+          "url": "https://metis.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "moca": {
+      "chainKey": "moca",
+      "eid": 30404,
+      "chainId": 2288,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://moca.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.mocachain.org",
+          "provider": "official"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "mode": {
+      "chainKey": "mode",
+      "eid": 30260,
+      "chainId": 34443,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mode-mainnet.rpc.sentio.xyz",
+          "provider": "sentio"
+        },
+        {
+          "url": "https://mode.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://mainnet.mode.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://1rpc.io/mode",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "monad": {
+      "chainKey": "monad",
+      "eid": 30390,
+      "chainId": 143,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://monad.rpc.blxrbdn.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://monad-mainnet.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://infra.originstake.com/monad/evm",
+          "provider": "originstake"
+        }
+      ],
+      "note": ""
+    },
+    "moonbeam": {
+      "chainKey": "moonbeam",
+      "eid": 30126,
+      "chainId": 1284,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://moonbeam-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://rpc.api.moonbeam.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://1rpc.io/glmr",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://moonbeam.api.pocket.network",
+          "provider": "pocket"
+        }
+      ],
+      "note": ""
+    },
+    "moonriver": {
+      "chainKey": "moonriver",
+      "eid": 30167,
+      "chainId": 1285,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.api.moonriver.moonbeam.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://moonriver.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://moonriver-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://moonriver.api.pocket.network",
+          "provider": "pocket"
+        }
+      ],
+      "note": ""
+    },
+    "morph": {
+      "chainKey": "morph",
+      "eid": 30322,
+      "chainId": 2818,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://morph.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc-quicknode.morphl2.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.morphl2.io",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "mp1": {
+      "chainKey": "mp1",
+      "eid": 30331,
+      "chainId": 21000000,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://21000000.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "neox": {
+      "chainKey": "neox",
+      "eid": 30414,
+      "chainId": 47763,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://47763.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        },
+        {
+          "url": "https://mainnet-2.rpc.banelabs.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://mainnet-1.rpc.banelabs.org",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "nexera": {
+      "chainKey": "nexera",
+      "eid": 30395,
+      "chainId": 7208,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.nexera.network",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "nibiru": {
+      "chainKey": "nibiru",
+      "eid": 30369,
+      "chainId": 6900,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://6900.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        },
+        {
+          "url": "https://evm-rpc.nibiru.fi",
+          "provider": "official"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "nova": {
+      "chainKey": "nova",
+      "eid": 30175,
+      "chainId": 42170,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://arb-nova-mainnet.gateway.tatum.io",
+          "provider": "tatum"
+        },
+        {
+          "url": "https://arbitrum-nova-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://arbitrum-nova.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://docs-demo.nova-mainnet.quiknode.pro",
+          "provider": "quicknode"
+        }
+      ],
+      "note": ""
+    },
+    "og": {
+      "chainKey": "og",
+      "eid": 30388,
+      "chainId": 16661,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://0g-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://0g.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://16661.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        },
+        {
+          "url": "https://evmrpc.0g.ai",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "okx": {
+      "chainKey": "okx",
+      "eid": 30155,
+      "chainId": 66,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://oktc.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://exchainrpc.okex.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://1rpc.io/oktc",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "opbnb": {
+      "chainKey": "opbnb",
+      "eid": 30202,
+      "chainId": 204,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://opbnb-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://opbnb.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://1rpc.io/opbnb",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://opbnb.api.pocket.network",
+          "provider": "pocket"
+        }
+      ],
+      "note": ""
+    },
+    "openledger": {
+      "chainKey": "openledger",
+      "eid": 30392,
+      "chainId": 1612,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.openledger.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://1612.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "optimism": {
+      "chainKey": "optimism",
+      "eid": 30111,
+      "chainId": 10,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://gateway.tenderly.co/public/optimism",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://optimism.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://mainnet.optimism.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://1rpc.io/op",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "orderly": {
+      "chainKey": "orderly",
+      "eid": 30213,
+      "chainId": 291,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://orderly.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.orderly.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://291.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "peaq": {
+      "chainKey": "peaq",
+      "eid": 30302,
+      "chainId": 3338,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://peaq-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://quicknode3.peaq.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://quicknode2.peaq.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://3338.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "pharos": {
+      "chainKey": "pharos",
+      "eid": 30407,
+      "chainId": 1672,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://pharos.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://infra.originstake.com/pharos/evm",
+          "provider": "originstake"
+        },
+        {
+          "url": "https://rpc.pharos.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "plasma": {
+      "chainKey": "plasma",
+      "eid": 30383,
+      "chainId": 9745,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://plasma-mainnet.gateway.tatum.io",
+          "provider": "tatum"
+        },
+        {
+          "url": "https://rpc.plasma.to",
+          "provider": "official"
+        },
+        {
+          "url": "https://plasma.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://plasma.api.onfinality.io/public",
+          "provider": "onfinality"
+        }
+      ],
+      "note": ""
+    },
+    "plume": {
+      "chainKey": "plume",
+      "eid": 30318,
+      "chainId": 98865,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [],
+      "note": "Chain 98865 'Plume' is a deprecated legacy Plume network (superseded by plume-mainnet/98866, chainKey 'plumephoenix' in this dataset) that the team has been shutting down; no live keyless public RPC could be found/verified. 0 endpoints."
+    },
+    "plumephoenix": {
+      "chainKey": "plumephoenix",
+      "eid": 30370,
+      "chainId": 98866,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://plume-mainnet.gateway.tatum.io",
+          "provider": "tatum"
+        },
+        {
+          "url": "https://plume.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.plume.org",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "polygon": {
+      "chainKey": "polygon",
+      "eid": 30109,
+      "chainId": 137,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://gateway.tenderly.co/public/polygon",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://1rpc.io/matic",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://polygon.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://polygon-bor-rpc.publicnode.com",
+          "provider": "publicnode"
+        }
+      ],
+      "note": ""
+    },
+    "rarible": {
+      "chainKey": "rarible",
+      "eid": 30235,
+      "chainId": 1380012617,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://1380012617.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "rayls": {
+      "chainKey": "rayls",
+      "eid": 30415,
+      "chainId": 72957,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mainnet-rpc.rayls.com",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "real": {
+      "chainKey": "real",
+      "eid": 30237,
+      "chainId": 111188,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://111188.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "redbelly": {
+      "chainKey": "redbelly",
+      "eid": 30402,
+      "chainId": 151,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://governors.mainnet.redbelly.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://151.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "reya": {
+      "chainKey": "reya",
+      "eid": 30313,
+      "chainId": 1729,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.reya.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://1729.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "rise": {
+      "chainKey": "rise",
+      "eid": 30401,
+      "chainId": 4153,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.risechain.com",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "robinhood": {
+      "chainKey": "robinhood",
+      "eid": 30416,
+      "chainId": 4663,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.mainnet.chain.robinhood.com",
+          "provider": "official"
+        }
+      ],
+      "note": "only 1 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "rootstock": {
+      "chainKey": "rootstock",
+      "eid": 30333,
+      "chainId": 30,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rootstock.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://mycrypto.rsk.co",
+          "provider": "official"
+        },
+        {
+          "url": "https://public-node.rsk.co",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "sagaevm": {
+      "chainKey": "sagaevm",
+      "eid": 30405,
+      "chainId": 5464,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://sagaevm.jsonrpc.sagarpc.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://5464.rpc.thirdweb.com/",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only 2 verified keyless public RPC(s) found after Exa search; chain has limited independent public RPC coverage"
+    },
+    "sanko": {
+      "chainKey": "sanko",
+      "eid": 30278,
+      "chainId": 1996,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://1996.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "small gaming L2 (Caldera rollup); only keyless RPC found is thirdweb's generic proxy (rate-limited). Official mainnet.sanko.xyz and Caldera-hosted alt both NXDOMAIN at check time; no independent infra provider (drpc/ankr/1rpc/blastapi) lists Sanko."
+    },
+    "scroll": {
+      "chainKey": "scroll",
+      "eid": 30214,
+      "chainId": 534352,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://scroll-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://scroll.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.scroll.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://scroll-public.nodies.app",
+          "provider": "nodies"
+        }
+      ],
+      "note": ""
+    },
+    "sei": {
+      "chainKey": "sei",
+      "eid": 30280,
+      "chainId": 1329,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://sei.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://evm-rpc.sei-apis.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://sei-evm-rpc.stakeme.pro",
+          "provider": "official"
+        },
+        {
+          "url": "https://sei.api.pocket.network",
+          "provider": "pocket"
+        }
+      ],
+      "note": ""
+    },
+    "shimmer": {
+      "chainKey": "shimmer",
+      "eid": 30230,
+      "chainId": 148,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://json-rpc.evm.shimmer.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://148.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "only one RPC domain exists anywhere (json-rpc.evm.shimmer.network, IOTA Foundation); no independent infra provider hosts Shimmer EVM. 2nd endpoint is thirdweb's generic keyless proxy, not a distinct operator."
+    },
+    "silicon": {
+      "chainKey": "silicon",
+      "eid": 30379,
+      "chainId": 2355,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://2355.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        },
+        {
+          "url": "https://rpc.silicon.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://silicon-mainnet.nodeinfra.com",
+          "provider": "nodeinfra"
+        }
+      ],
+      "note": ""
+    },
+    "skale": {
+      "chainKey": "skale",
+      "eid": 30273,
+      "chainId": 2046399126,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://2046399126.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        },
+        {
+          "url": "https://mainnet.skalenodes.com/v1/elated-tan-skat",
+          "provider": "official"
+        }
+      ],
+      "note": "SKALE Europa chain endpoints are per-chain hashed aliases run by the SKALE Foundation only; no independent provider (drpc/ankr/1rpc) proxies SKALE chains. 2nd endpoint is thirdweb's generic keyless proxy."
+    },
+    "somnia": {
+      "chainKey": "somnia",
+      "eid": 30380,
+      "chainId": 5031,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://api.infra.mainnet.somnia.network",
+          "provider": "official"
+        },
+        {
+          "url": "https://somnia-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://rpc.ankr.com/somnia_mainnet",
+          "provider": "ankr"
+        }
+      ],
+      "note": ""
+    },
+    "soneium": {
+      "chainKey": "soneium",
+      "eid": 30340,
+      "chainId": 1868,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.soneium.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://soneium.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://soneium-mainnet.rpc.sentio.xyz",
+          "provider": "sentio"
+        }
+      ],
+      "note": ""
+    },
+    "sonic": {
+      "chainKey": "sonic",
+      "eid": 30332,
+      "chainId": 146,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://sonic-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://sonic.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://sonic-json-rpc.stakely.io",
+          "provider": "stakely"
+        }
+      ],
+      "note": ""
+    },
+    "sophon": {
+      "chainKey": "sophon",
+      "eid": 30334,
+      "chainId": 50104,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.sophon.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc-quicknode.sophon.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://50104.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "space": {
+      "chainKey": "space",
+      "eid": 30341,
+      "chainId": 8227,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://subnets.avax.network/space/mainnet/rpc",
+          "provider": "official"
+        },
+        {
+          "url": "https://8227.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "small Avalanche L1 subnet; only RPC is the native Avalanche subnets.avax.network gateway (official). No 3rd-party infra provider indexes this subnet. 2nd endpoint is thirdweb's generic keyless proxy."
+    },
+    "stable": {
+      "chainKey": "stable",
+      "eid": 30396,
+      "chainId": 988,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.stable.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://stable-mainnet.rpc.sentio.xyz",
+          "provider": "sentio"
+        },
+        {
+          "url": "https://stable.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "story": {
+      "chainKey": "story",
+      "eid": 30364,
+      "chainId": 1514,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mainnet.storyrpc.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://mainnet.datarpc.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.ankr.com/story_mainnet",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://1514.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "subtensorevm": {
+      "chainKey": "subtensorevm",
+      "eid": 30374,
+      "chainId": 964,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://bittensor-lite-public.nodies.app",
+          "provider": "nodies"
+        },
+        {
+          "url": "https://lite.chain.opentensor.ai",
+          "provider": "official"
+        }
+      ],
+      "note": "Bittensor EVM is very new; only the Opentensor Foundation node and one nodies.app mirror are public. thirdweb does not recognize this chainId; no drpc/ankr/1rpc coverage found."
+    },
+    "superposition": {
+      "chainKey": "superposition",
+      "eid": 30327,
+      "chainId": 55244,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.superposition.so",
+          "provider": "official"
+        },
+        {
+          "url": "https://55244.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "niche Arbitrum Orbit chain; only official rpc.superposition.so is documented. 2nd endpoint is thirdweb's generic keyless proxy; no independent multi-chain provider (drpc/ankr/1rpc) lists it."
+    },
+    "swell": {
+      "chainKey": "swell",
+      "eid": 30335,
+      "chainId": 1923,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/swell",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://swell-mainnet.rpc.sentio.xyz",
+          "provider": "sentio"
+        },
+        {
+          "url": "https://swell.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "tac": {
+      "chainKey": "tac",
+      "eid": 30377,
+      "chainId": 239,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/tac",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://rpc.tac.build",
+          "provider": "official"
+        },
+        {
+          "url": "https://tac.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://239.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "taiko": {
+      "chainKey": "taiko",
+      "eid": 30290,
+      "chainId": 167000,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://taiko-mainnet.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://rpc.mainnet.taiko.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://taiko-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://rpc.taiko.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "telos": {
+      "chainKey": "telos",
+      "eid": 30199,
+      "chainId": 40,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://telos.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://1rpc.io/telos/evm",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://rpc.telos.net",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "tempo": {
+      "chainKey": "tempo",
+      "eid": 30410,
+      "chainId": 4217,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://tempo-mainnet.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.mainnet.tempo.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.tempo.xyz",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "tenet": {
+      "chainKey": "tenet",
+      "eid": 30173,
+      "chainId": 1559,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/tenet_evm",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://tenet-evm.public-rpc.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://tenet.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "tiltyard": {
+      "chainKey": "tiltyard",
+      "eid": 30238,
+      "chainId": 710420,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://710420.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "Avalanche gaming subnet appears inactive/deprecated at the standard path (subnets.avax.network/tiltyard/mainnet/rpc returns HTTP 405, serves the explorer app instead of proxying RPC). Only working endpoint found is thirdweb's generic keyless proxy."
+    },
+    "tomo": {
+      "chainKey": "tomo",
+      "eid": 30196,
+      "chainId": 88,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://viction.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.viction.xyz",
+          "provider": "official"
+        },
+        {
+          "url": "https://88.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "unichain": {
+      "chainKey": "unichain",
+      "eid": 30320,
+      "chainId": 130,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://unichain-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://mainnet.unichain.org",
+          "provider": "official"
+        },
+        {
+          "url": "https://unichain.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://unichain-mainnet.rpc.sentio.xyz",
+          "provider": "sentio"
+        }
+      ],
+      "note": ""
+    },
+    "worldchain": {
+      "chainKey": "worldchain",
+      "eid": 30319,
+      "chainId": 480,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://worldchain.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://worldchain-mainnet.g.alchemy.com/public",
+          "provider": "official"
+        },
+        {
+          "url": "https://worldchain-mainnet.gateway.tenderly.co",
+          "provider": "tenderly"
+        },
+        {
+          "url": "https://sparkling-autumn-dinghy.worldchain-mainnet.quiknode.pro",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "xai": {
+      "chainKey": "xai",
+      "eid": 30236,
+      "chainId": 660279,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://rpc.ankr.com/xai",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://xai-chain.net/rpc",
+          "provider": "official"
+        },
+        {
+          "url": "https://660279.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "xchain": {
+      "chainKey": "xchain",
+      "eid": 30291,
+      "chainId": 94524,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://94524.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "Conduit-hosted rollup; Conduit's own RPC requires an API key, and the only publicly listed URL (xchain-rpc.kuma.bid) fails TLS hostname verification (cert is for *.t.conduit.xyz, not kuma.bid). Only usable endpoint is thirdweb's generic keyless proxy."
+    },
+    "xdc": {
+      "chainKey": "xdc",
+      "eid": 30365,
+      "chainId": 50,
+      "eligible": true,
+      "etherscanFree": true,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.xdcrpc.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.ankr.com/xdc",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://earpc.xinfin.network",
+          "provider": "official"
+        }
+      ],
+      "note": ""
+    },
+    "xlayer": {
+      "chainKey": "xlayer",
+      "eid": 30274,
+      "chainId": 196,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://xlayer.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.xlayer.tech",
+          "provider": "official"
+        },
+        {
+          "url": "https://xlayer-mainnet.rpc.sentio.xyz",
+          "provider": "sentio"
+        },
+        {
+          "url": "https://xlayer.rpc.blxrbdn.com",
+          "provider": "bloxroute"
+        }
+      ],
+      "note": ""
+    },
+    "xpla": {
+      "chainKey": "xpla",
+      "eid": 30216,
+      "chainId": 37,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://xpla-evm-rpc.publicnode.com",
+          "provider": "publicnode"
+        },
+        {
+          "url": "https://dimension-evm-rpc.xpla.dev",
+          "provider": "official"
+        },
+        {
+          "url": "https://37.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "zama": {
+      "chainKey": "zama",
+      "eid": 30397,
+      "chainId": 261131,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.mainnet.zama.org",
+          "provider": "official"
+        }
+      ],
+      "note": "fhEVM chain, very recently launched; only rpc.mainnet.zama.org found and verified. thirdweb does not yet recognize this chainId; no drpc/ankr/1rpc/blastapi coverage found."
+    },
+    "zircuit": {
+      "chainKey": "zircuit",
+      "eid": 30303,
+      "chainId": 48900,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://zircuit.rpc.sentio.xyz",
+          "provider": "sentio"
+        },
+        {
+          "url": "https://mainnet.zircuit.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://48900.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    },
+    "zkatana": {
+      "chainKey": "zkatana",
+      "eid": 30257,
+      "chainId": 3776,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://3776.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "chainKey maps to Astar zkEVM mainnet (chainId 3776), not the old zKatana testnet. Astar's documented RPC (rpc.startale.com/astar-zkevm) and Gelato/Dwellir mirrors all return NXDOMAIN (chain appears to have lost its dedicated RPC infra). Only working endpoint is thirdweb's generic keyless proxy."
+    },
+    "zkevm": {
+      "chainKey": "zkevm",
+      "eid": 30158,
+      "chainId": 1101,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://zkevm-rpc.com",
+          "provider": "official"
+        },
+        {
+          "url": "https://polygon-zkevm.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://1rpc.io/polygon/zkevm",
+          "provider": "1rpc"
+        }
+      ],
+      "note": ""
+    },
+    "zklink": {
+      "chainKey": "zklink",
+      "eid": 30301,
+      "chainId": 810180,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://rpc.zklink.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://810180.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": "zkLink Nova's own rpc.zklink.io is the only chain-specific endpoint; no independent multi-chain provider (drpc/ankr/1rpc) lists it. 2nd endpoint is thirdweb's generic keyless proxy."
+    },
+    "zksync": {
+      "chainKey": "zksync",
+      "eid": 30165,
+      "chainId": 324,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://mainnet.era.zksync.io",
+          "provider": "official"
+        },
+        {
+          "url": "https://rpc.ankr.com/zksync_era",
+          "provider": "ankr"
+        },
+        {
+          "url": "https://1rpc.io/zksync2-era",
+          "provider": "1rpc"
+        },
+        {
+          "url": "https://zksync.drpc.org",
+          "provider": "drpc"
+        }
+      ],
+      "note": ""
+    },
+    "zkverify": {
+      "chainKey": "zkverify",
+      "eid": 30386,
+      "chainId": 1408,
+      "eligible": false,
+      "etherscanFree": false,
+      "multicall3": false,
+      "rpcs": [
+        {
+          "url": "https://vflow-rpc.zkverify.io",
+          "provider": "official"
+        }
+      ],
+      "note": "zkVerify's mainchain is Substrate-based; official docs list no keyless HTTPS endpoint (only a keyless WSS and a keyed Ankr HTTPS). The one HTTPS endpoint that verified (vflow-rpc.zkverify.io) is an EVM-compatible sidecar, likely single-operator."
+    },
+    "zora": {
+      "chainKey": "zora",
+      "eid": 30195,
+      "chainId": 7777777,
+      "eligible": true,
+      "etherscanFree": false,
+      "multicall3": true,
+      "rpcs": [
+        {
+          "url": "https://zora.drpc.org",
+          "provider": "drpc"
+        },
+        {
+          "url": "https://rpc.zora.energy",
+          "provider": "official"
+        },
+        {
+          "url": "https://7777777.rpc.thirdweb.com",
+          "provider": "thirdweb"
+        }
+      ],
+      "note": ""
+    }
+  }
+}

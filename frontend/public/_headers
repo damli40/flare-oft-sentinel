@@ -1,0 +1,20 @@
+# Same header as the [[headers]] block in the repo-root netlify.toml, and the
+# same reason: keep every path out of search engines. Both exist because they
+# cover different deploy paths, and only one of them reaches this site.
+#
+#   netlify.toml  — read on a repo-connected build. That is how anyone who
+#                   clones this repository and points Netlify at it deploys, so
+#                   the block has to be there.
+#   this file     — travels INSIDE the publish directory, so it applies however
+#                   the directory got there.
+#
+# MEASURED, not assumed: this site is deployed as a pre-built directory
+# (`netlify deploy --prod --dir dist --no-build`) from a git WORKTREE, and the
+# CLI resolves netlify.toml by walking up out of the worktree — it picked up a
+# different branch's file, which carries no headers block, and the header was
+# absent from the live response. A file in the publish directory has nothing to
+# resolve.
+#
+# If they ever disagree, netlify.toml wins. Keep them saying the same thing.
+/*
+  X-Robots-Tag: noindex, nofollow

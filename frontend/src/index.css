@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   OFT SENTINEL: design system (ported from sentinel.css)
+   Premium autonomous-security aesthetic.
+   ============================================================ */
+
+:root {
+  /* canvas / surfaces */
+  --bg:          #07090D;
+  --bg-2:        #0A0D12;
+  --surface:     #0E1218;
+  --surface-2:   #141922;
+  --surface-3:   #1A2029;
+  --border:      #1F2630;
+  --border-soft: #161B23;
+  --hairline:    rgba(255,255,255,0.055);
+  --top-light:   rgba(255,255,255,0.05);
+
+  /* text */
+  --text:   #EAEEF5;
+  --text-2: #8A93A3;
+  --faint:  #565F6D;
+  --ghost:  #39414D;
+
+  /* signature: ice "scan" */
+  --scan:        #5BE7F0;
+  --scan-bright: #A6F4F9;
+  --scan-deep:   #1FB9C6;
+  --scan-glow:   rgba(91,231,240,0.22);
+
+  /* risk semantics */
+  --critical:      #FF4D5E;
+  --critical-glow: rgba(255,77,94,0.28);
+  --critical-tint: rgba(255,77,94,0.06);
+  --warn:          #FFB23E;
+  --warn-glow:     rgba(255,178,62,0.18);
+  --warn-tint:     rgba(255,178,62,0.05);
+  --safe:          #34D27D;
+  --safe-glow:     rgba(52,210,125,0.18);
+
+  /* type */
+  --display: 'Space Grotesk', system-ui, sans-serif;
+  --mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  /* elevation */
+  --elev:    inset 0 1px 0 0 var(--top-light), 0 0 0 1px var(--border), 0 14px 44px -16px rgba(0,0,0,0.85);
+  --elev-sm: inset 0 1px 0 0 var(--top-light), 0 0 0 1px var(--border), 0 4px 18px -10px rgba(0,0,0,0.8);
+
+  --radius:    14px;
+  --radius-sm: 10px;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1100px 620px at 50% -8%, rgba(91,231,240,0.05), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--display);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* faint crosshatch grid */
+body {
+  background-image:
+    linear-gradient(to right, var(--hairline) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hairline) 1px, transparent 1px),
+    radial-gradient(1100px 620px at 50% -8%, rgba(91,231,240,0.05), transparent 60%);
+  background-size: 34px 34px, 34px 34px, 100% 100%;
+  background-color: var(--bg);
+}
+
+/* ---- type helpers ---- */
+.mono  { font-family: var(--mono); }
+.tnum  { font-variant-numeric: tabular-nums; }
+.tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+/* ---- card ---- */
+.card {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  border-radius: var(--radius);
+  box-shadow: var(--elev);
+}
+
+/* ---- keyframes ---- */
+@keyframes scan-rot {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--scan-glow); opacity: 1; }
+  70%  { box-shadow: 0 0 0 7px rgba(91,231,240,0); opacity: .7; }
+  100% { box-shadow: 0 0 0 0 rgba(91,231,240,0); opacity: 1; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes count-flick {
+  from { opacity: .4; }
+  to   { opacity: 1; }
+}
+
+@keyframes crit-breathe {
+  0%,100% { box-shadow: 0 0 0 1px var(--critical), 0 0 0px var(--critical-glow); }
+  50%     { box-shadow: 0 0 0 1px var(--critical), 0 0 18px var(--critical-glow); }
+}
+
+/* live dot */
+.live-dot {
+  display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--scan);
+  box-shadow: 0 0 8px var(--scan);
+  animation: live-pulse 2s infinite;
+}
+
+/* enter animation */
+.rise { animation: rise 0.4s ease-out both; }
+
+::selection { background: rgba(91,231,240,0.25); color: #fff; }
+:focus-visible { outline: 2px solid var(--scan); outline-offset: 2px; border-radius: 4px; }
+
+/* scrollbars */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

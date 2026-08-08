@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- This site is a link people are given, not a page anyone should find by
+         searching. Two things enforce that: this tag and the X-Robots-Tag
+         response header (netlify.toml for a repo-connected build,
+         public/_headers for a pre-built deploy). Both only work if a crawler is
+         allowed to fetch the page and read them, which is why public/robots.txt
+         says Allow and not Disallow — a robots block would stop the fetch and
+         leave the URL indexable from any external link. No auth, password,
+         token or query-param check — anyone holding the link must get straight
+         in; a reviewer meeting a locked page scores it zero. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Flare OFT Rail Status — OFT Sentinel</title>
+    <meta name="description" content="Deterministic LayerZero config monitoring for the OFT rails on Flare. Sentinel re-reads each rail's cross-chain configuration every cycle and publishes verdicts anyone can recompute from the same rules." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <link rel="apple-touch-icon" href="/favicon.svg?v=2" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/flare-main.tsx"></script>
+  </body>
+</html>

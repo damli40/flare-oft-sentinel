@@ -1,0 +1,22 @@
+{
+  "name": "oft-sentinel-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "On-chain benchmark ledger (AuditRegistry) for the OFT Sentinel agent — Mantle Turing Test Hackathon 2026",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:testnet": "hardhat run scripts/deploy.ts --network mantleSepolia",
+    "deploy:mainnet": "hardhat run scripts/deploy.ts --network mantle"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
+    "chai": "^4.5.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.16",
+    "typescript": "^5.6.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.16.0",
+    "@types/mocha": "^10.0.9"
+  }
+}
