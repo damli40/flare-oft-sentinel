@@ -19,18 +19,17 @@ read 2026-08-08. In and out, not into: the split is in the query and in
 
 **Why that number is not the risk.** The loss is not spread across those 45,646
 messages. A verification stack decides whether an inbound message is real, and
-where one has been defeated, a single accepted message can carry the entire loss,
-and has.
-Volume tells you what is at stake. The message count tells you nothing about the
-risk. The configuration does, and it changes about twice a year, which is exactly
-why no human is watching on the day it moves.
+where one has been defeated, a single accepted message can carry the entire
+loss, and has. Volume tells you what is at stake. The message count tells you
+nothing about the risk. The configuration does, and it changes about twice a
+year, which is exactly why no human is watching on the day it moves.
 
 **What this can see, and what it cannot.** It reads configuration. It cannot tell
 you that someone is, at this moment, compromising the infrastructure a verifier
 depends on. What it can tell you is whether your configuration is one where a
-single defeated verifier would be enough on its own. Those are different questions, and
-only the second is answerable from the chain. This answers the second one, every
-cycle, and shows its work.
+single defeated verifier would be enough on its own. Those are different
+questions, and only the second is answerable from the chain. This answers the
+second one, every cycle, and shows its work.
 
 **Where it is running.** The page is at
 <https://flare-oft-sentinel.netlify.app/flare.html> and the API behind it at
@@ -48,8 +47,9 @@ run](#check-it-yourself-without-taking-our-word-for-any-of-it).
 **What was built during it.** The Flare instance: the registry and its alert
 contract deployed on Flare Mainnet, plus the demo OFT beside them, which is the
 three transactions in the table below. The scope module that decides what gets
-read and what may ever be signed, the Flare watchlist query, the judge page, the FTSOv2 read that prices
-what each contract is holding, and one scoring fix published below as a diff.
+read and what may ever be signed, the Flare watchlist query, the judge page, the
+FTSOv2 read that prices what each contract is holding, and one scoring fix
+published below as a diff.
 
 **How Flare is used.** [The list is here](#how-this-uses-flare). The one worth
 naming at the top: two of the six are on the watchlist because Flare's own
@@ -312,10 +312,10 @@ explicit allowlist of paths, runs its checks over the result, and deletes the
 whole tree if any of them trips, so a failed export cannot leave something
 publishable behind. Those checks include a secret scan, a vocabulary sweep, the
 engine digest pins published below, and a gate that rebuilds the page and
-verifies that claims this file makes about it actually ship in the bundle. The private tree itself cannot be published: it
-holds deployment credentials, findings about third-party assets that are shared
-in confidence with the parties they concern, and work unrelated to this
-submission.
+verifies that claims this file makes about it actually ship in the bundle. The
+private tree itself cannot be published: it holds deployment credentials,
+findings about third-party assets that are shared in confidence with the parties
+they concern, and work unrelated to this submission.
 
 The visible consequence is that the history starts at the export rather than at
 the first line of work. Two things stand in for it, and both are harder to fake
@@ -713,8 +713,8 @@ description of what it wants. It costs nothing and needs no key.
 operator behind a rule, the way the raw status endpoint does. The page holds that
 back. This endpoint does not.
 
-<details>
-<summary>Why this endpoint is free rather than priced in FXRP, which we checked</summary>
+<details> <summary>Why this endpoint is free rather than priced in FXRP, which
+we checked</summary>
 
 The rule engine behind a paid HTTP call is a reasonable thing to want, and
 [x402](https://dev.flare.network/fxrp/token-interactions/x402-payments) is
