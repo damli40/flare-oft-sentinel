@@ -369,14 +369,24 @@ const X402_CHALLENGE = Buffer.from(
 // it off for everyone else. Exact-string comparison, like ALERTS_DISABLED — a
 // typo must not silently disable a live payment path.
 //
-// Nothing about this could be a Flare-priced challenge today. Flare's own x402
-// guide (dev.flare.network/fxrp/token-interactions/x402-payments) targets
-// Coston2 testnet with a MockUSDT0 it has you deploy yourself, because the
-// scheme needs EIP-3009 `transferWithAuthorization` and the doc states FXRP will
-// be supported "once it implements" it. Measured on Flare Mainnet 2026-08-08:
-// neither USDT0 (0x5672…7588) nor FXRP (0xd706…e07e) exposes
-// transferWithAuthorization, receiveWithAuthorization, authorizationState or
-// DOMAIN_SEPARATOR — every one reverts. There is no asset to price it in.
+// Why this is not a Flare-priced challenge today. Flare's own x402 guide
+// (dev.flare.network/fxrp/token-interactions/x402-payments) targets Coston2
+// testnet with a MockUSDT0 it has you deploy yourself, because the scheme needs
+// EIP-3009 `transferWithAuthorization` and the doc states FXRP will be supported
+// "once it implements" it.
+//
+// CORRECTED 2026-08-08. This comment previously said neither USDT0 nor FXRP
+// exposes EIP-3009 and that there was no asset to price it in. That was measured
+// against the OFT WRAPPERS, which are not the tokens — the same wrapper-versus-
+// token mistake the exposure reader exists to avoid. Re-measured against the
+// token contracts, resolving each proxy to its implementation:
+//   USDT0 token 0xe7cd86e1… -> impl 0x779ded0c… HAS the full EIP-3009 interface
+//   FXRP  token 0xAd552A64… -> impl 0x53cfb685… has EIP-2612 permit and NO 3009
+// So USDT0 could settle an x402 call on Flare Mainnet today. What remains true is
+// narrower and is the actual reason this ships free: pricing in FXRP is not
+// possible, mainnet settlement needs a facilitator rather than a flag, and this
+// route is a listed paid service on a different deployment whose declared
+// interface must not change from here.
 const X402_ENABLED = process.env.X402_ENABLED !== "false";
 
 const VALIDATE_USAGE = {

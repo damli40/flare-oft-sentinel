@@ -10,19 +10,22 @@ Mainnet, scores each against a fixed rule set, and alerts when a reading changes
 When the verdict for the one asset it may sign about changes, it writes a hash of
 that verdict to a contract on Flare. No model sits anywhere in the verdict path.
 
-**How much rides on it.** The Flare OFT corridors this watches have carried
-**$1.78 billion in and out across 45,646 messages**, and **$137 million of that in
-the last 90 days**. Measured from LayerZero's own Dune tables, query
+**How much rides on it.** Flare's OFT corridors have carried **$1.78 billion in
+and out across 45,646 messages**, and **$137 million of that in the last 90
+days**. This watches all of them bar a rounding, which the
+[watchlist section](#what-this-instance-watches) quantifies. Measured from LayerZero's own Dune tables, query
 [8265924](https://dune.com/queries/8265924), execution `01KZHEMZV74KDS6D2HEC8TSCMR`,
-read 2026-08-08. In and out, not into: the split is in the query and in
-[How this uses Flare](#how-this-uses-flare).
+read 2026-08-08. In and out, not into: the same execution splits them, $896M in
+against $886M out, and merging the two into an "into Flare" figure would roughly
+double the claim.
 
 **Why that number is not the risk.** The loss is not spread across those 45,646
 messages. A verification stack decides whether an inbound message is real, and
 where one has been defeated, a single accepted message can carry the entire
 loss, and has. Volume tells you what is at stake. The message count tells you
-nothing about the risk. The configuration does, and it changes about twice a
-year, which is exactly why no human is watching on the day it moves.
+nothing about the risk. The configuration does, and it changes rarely. Rare is
+exactly what a human misses: nobody stays vigilant for the one cycle in a
+thousand that differs from the nine hundred and ninety-nine before it.
 
 **What this can see, and what it cannot.** It reads configuration. It cannot tell
 you that someone is, at this moment, compromising the infrastructure a verifier
@@ -64,9 +67,9 @@ means, and what to read instead](#about-this-repository).
 
 A token that moves between chains (an OFT) is as safe as a configuration almost
 nobody reads: which verifiers must sign off on a message, which libraries carry
-it, who can change either. That configuration changes maybe twice a year. Those
-are the changes a human misses, so the check has to be a machine that runs on a
-schedule and shows its work.
+it, who can change either. That configuration changes rarely, and rare is exactly
+what a human misses, so the check has to be a machine that runs on a schedule and
+shows its work.
 
 An audit photographs the code at one moment. It cannot catch a change made after
 the photo, and the changes that matter here are made after the photo, in public,
@@ -719,26 +722,44 @@ The rule engine behind a paid HTTP call is a reasonable thing to want, and
 [x402](https://dev.flare.network/fxrp/token-interactions/x402-payments) is
 Flare's documented way to do it: an agent gets `402 Payment Required`, signs an
 EIP-3009 authorization off-chain, and resends. We checked whether this endpoint
-could ship that way on Flare today. It cannot, for two reasons we measured
-rather than assumed.
+could ship that way on Flare today. What we measured is below, and it is more
+interesting than a flat no.
 
 Flare's own guide targets **Coston2 testnet** (`network: "flare-coston2"`,
 chainId 114) and deploys a **MockUSDT0** you create yourself, with a facilitator
 you also deploy. It says so in its own banner: FXRP will be supported "once it
 implements the required EIP-3009 standard".
 
-We confirmed that against Flare Mainnet on 2026-08-08. Neither watched
-stablecoin exposes any part of the EIP-3009 interface the scheme needs:
+We checked that against Flare Mainnet on 2026-08-08, against the **token**
+contracts rather than the OFT wrappers, and resolving each proxy to its
+implementation. That distinction matters and an earlier version of this table got
+it wrong: the watched addresses are wrappers, and a wrapper answering nothing
+tells you nothing about the token it moves.
 
-| token | `transferWithAuthorization` | `receiveWithAuthorization` | `authorizationState` | `DOMAIN_SEPARATOR` |
-|---|---|---|---|---|
-| USDT0 `0x5672…7588` | absent | absent | reverts | reverts |
-| FXRP `0xd706…e07e` | absent | absent | reverts | reverts |
+| token | proxies to | EIP-3009 |
+|---|---|---|
+| USDT0 `0xe7cd…C82D` | `0x779d…3736` | **present**: `transferWithAuthorization`, `receiveWithAuthorization`, `cancelAuthorization`, `authorizationState`, and a live `DOMAIN_SEPARATOR` |
+| FXRP `0xAd55…c5bE` | `0x53cf…25d3` | **absent**: `DOMAIN_SEPARATOR` answers, which is EIP-2612 permit, and none of the EIP-3009 entry points exist |
 
-So there is no asset on Flare Mainnet to price a call in, and a challenge naming
-a token that cannot settle it would be worse than no challenge. When FXRP gains
-EIP-3009, this becomes a configuration change rather than a redesign: the
-endpoint already speaks the protocol, gated behind `X402_ENABLED`.
+So the honest statement is narrower than "Flare cannot do this". **USDT0 could
+settle an x402 call on Flare Mainnet today.** FXRP could not, which matches
+Flare's own documentation banner saying FXRP will be supported once it implements
+EIP-3009.
+
+Three reasons this endpoint still ships free, none of which is "the chain cannot":
+
+1. The question this section set out to answer was whether a call could be priced
+   **in FXRP**, Flare's own asset, and the answer to that is no.
+2. Flare's documented facilitator flow targets Coston2 with a token and a
+   facilitator you deploy yourself. Pricing on mainnet means running settlement
+   infrastructure, which is a product decision rather than a config flag.
+3. `X402_ENABLED` exists because this route is a listed paid service on a
+   different deployment. Changing what that listing declares is not something to
+   do inside a hackathon submission.
+
+A USDT0-priced challenge on Flare is therefore honest future work rather than a
+blocked path, and the endpoint already speaks the protocol behind
+`X402_ENABLED`.
 </details>
 
 **From an agent, rather than from curl.** `mcp/` in this repository is an MCP
