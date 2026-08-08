@@ -232,6 +232,13 @@ today.
 
 The page is live and nothing below needs an account, a key, or an install.
 
+![The judge page: six OFTs on Flare, each with a score, a risk band, a finding count and a measured holding priced by FTSOv2. Two read CRITICAL, and only the demo OFT shows its findings in full.](assets/judge-page.jpg)
+
+*Captured 2026-08-08. It is here as a fallback, not as evidence: the live link
+below is the thing to trust, and this is only so you can see what you were meant
+to see if the host is having a bad day while you are reading. Nothing in it is
+arranged. It is the default view of the page with no card opened.*
+
 1. **Open <https://flare-oft-sentinel.netlify.app/flare.html>.** Six tiles, one
    per watched OFT, each with a score and a risk band. **Two of them read
    CRITICAL.** Those are live third-party tokens and the tool is not softening
