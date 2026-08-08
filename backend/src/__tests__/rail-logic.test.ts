@@ -5,31 +5,45 @@ import { fileURLToPath } from "node:url";
 
 import {
   DEMO_PINNED,
+  EXPOSURE_NOTE,
   META_CAVEAT,
+  MINTS_ON_ARRIVAL_NOTE,
   WITHHELD_LINE,
   ago,
+  amountLine,
   columnsFor,
   countsLine,
   detailAfterIndex,
   dvnName,
+  basisLabel,
+  exposureBasis,
+  exposureLine,
+  exposureSource,
+  exposureTokenNote,
+  exposureValue,
   findingsLine,
   fleetLine,
   isDemoAsset,
   keyed,
   libState,
   metaLine,
+  mintNote,
   parseDemoPins,
+  priceLine,
   publicRead,
   routesOf,
   short,
+  sortByExposure,
   structuralRoutes,
+  tokenAmount,
+  usd,
   utc,
   verdictIsStale,
   structuralNote,
   verificationOf,
   withheldNote,
 } from "../../../frontend/src/rail-logic";
-import type { RouteRead, UlnRead, WatchedRead } from "../../../frontend/src/rail-logic";
+import type { ExposureRead, RouteRead, UlnRead, WatchedRead } from "../../../frontend/src/rail-logic";
 
 // The judge page's non-obvious logic, tested from the backend suite rather than
 // from a second test runner nobody would remember to run — the same reach into
@@ -696,6 +710,396 @@ describe("META_CAVEAT", () => {
   });
 });
 
+// ── What a rail is worth, and where the number came from ─────────────────────
+//
+// Three of the six watched assets have no price feed at all, so the unpriceable
+// path is the COMMON one here and most of these cases are about it. The failure
+// that matters is not a wrong figure: it is an absent read rendered as `$0`, a
+// blank or a dash, each of which a reader takes as "worthless" or "broken"
+// rather than "not measured". The other one is a price that looks like an input
+// to the score, which is what EXPOSURE_NOTE exists to prevent.
+
+/** Feed values as this repo measured them off the live oracle (see the
+ *  worked-example case in ftso.test.ts): XRP/USD 1.044395, USDT/USD 0.99948,
+ *  FLR/USD 0.00605322. Used here so the formatting cases are exercised against
+ *  the shapes the fleet actually produces — including a price two orders of
+ *  magnitude below a cent. */
+const ASSET_ADDR = "0xabc1111111111111111111111111111111111111";
+const UNDERLYING_ADDR = "0xdef2222222222222222222222222222222222222";
+const CHAIN = "Testchain";
+
+/** A lockbox row: the amount is what the contract CUSTODIES, read off the
+ *  underlying ERC20, and the underlying is a different contract. */
+function exposure(over: Partial<ExposureRead> = {}): ExposureRead {
+  return {
+    feed: "XRP/USD",
+    amount: "1000000000000",
+    decimals: 6,
+    basis: "custodied",
+    priceUsd: 1.044395,
+    valueUsd: 1_044_395,
+    feedTimestamp: 1_754_600_000,
+    stale: false,
+    readAt: Date.UTC(2026, 7, 8, 1, 26, 0),
+    pricedToken: ASSET_ADDR,
+    mintsOnArrival: false,
+    ...over,
+  };
+}
+
+/** The three watched tickers with no feed. They are plain OFTs, so their amount
+ *  is their own circulating supply and it reads fine; everything priced is
+ *  null. */
+const UNPRICEABLE: ExposureRead = {
+  feed: null,
+  amount: "999000000000",
+  decimals: 9,
+  basis: "circulating",
+  priceUsd: null,
+  valueUsd: null,
+  feedTimestamp: null,
+  stale: false,
+  readAt: Date.UTC(2026, 7, 8, 1, 26, 0),
+  pricedToken: ASSET_ADDR,
+  mintsOnArrival: false,
+};
+
+describe("usd, priceLine and amountLine", () => {
+  it("drops the cents on a figure where cents are noise, and keeps them below a thousand", () => {
+    expect(usd(650_133_912.34)).toBe("$650,133,912");
+    expect(usd(1_044_395)).toBe("$1,044,395");
+    expect(usd(999.994)).toBe("$999.99");
+    expect(usd(0)).toBe("$0.00");
+  });
+
+  it("writes a sub-cent price as a number, never as $0.00", () => {
+    // The bug this exists for: usd() would render the measured FLR/USD price as
+    // "$0.00" — a real price displayed as no price.
+    expect(priceLine(0.00605322)).toBe("$0.00605322");
+    expect(priceLine(0.99948)).toBe("$0.99948");
+    expect(priceLine(1.044395)).toBe("$1.044395");
+    expect(priceLine(1923.4)).toBe("$1,923.4");
+    expect(priceLine(1)).toBe("$1");
+  });
+
+  it("writes a token count in whole units", () => {
+    expect(amountLine(100_000_000_000)).toBe("100,000,000,000");
+    expect(amountLine(1)).toBe("1");
+    expect(amountLine(0.5)).toBe("0.5");
+  });
+});
+
+describe("tokenAmount", () => {
+  it("scales a raw amount by the token's own decimals", () => {
+    expect(tokenAmount("1000000", 6)).toBe(1);
+    expect(tokenAmount("1000000000000", 6)).toBe(1_000_000);
+    expect(tokenAmount("1500000", 6)).toBe(1.5);
+  });
+
+  it("survives an amount far past what a float can hold", () => {
+    // 100 billion tokens at 18 decimals is a ~10^29 raw value. A single Number()
+    // cast loses precision above 2^53; the bigint division happens first.
+    expect(tokenAmount("100000000000" + "0".repeat(18), 18)).toBe(100_000_000_000);
+  });
+
+  it("returns null rather than guessing when either input was not read", () => {
+    expect(tokenAmount(null, 18)).toBeNull();
+    expect(tokenAmount("1000", null)).toBeNull();
+    expect(tokenAmount(null, null)).toBeNull();
+    // and never treats junk as a number
+    expect(tokenAmount("not-a-number", 18)).toBeNull();
+    expect(tokenAmount("1000", -1)).toBeNull();
+  });
+});
+
+// ── The noun is not decoration ───────────────────────────────────────────────
+//
+// "$13,503,764" is an unattributed number. What a contract CUSTODIES and what a
+// token has CIRCULATING are answers to different questions, and the gap between
+// them on this instance's own fleet was 11.5x on one asset and infinite on
+// another. So the label rides on the row.
+
+describe("basisLabel", () => {
+  it("names the two bases distinctly", () => {
+    expect(basisLabel("custodied", CHAIN)).toBe("custodied here");
+    expect(basisLabel("circulating", CHAIN)).toBe(`circulating on ${CHAIN}`);
+  });
+
+  it("takes the chain name from /status and never writes one down", () => {
+    // The page derives every chain name from the backend's own answer; this
+    // function is handed one and says "this chain" when it has none, rather
+    // than carrying a literal that would be wrong on any other deployment.
+    expect(basisLabel("circulating", null)).toBe("circulating on this chain");
+  });
+
+  it("says nothing at all when the basis is unknown", () => {
+    // An older instance that does not serve the field. A default label would be
+    // a claim about which question the number answers.
+    expect(basisLabel(null, CHAIN)).toBeNull();
+  });
+});
+
+describe("exposureLine", () => {
+  it("states the figure AND the noun that makes it mean something", () => {
+    expect(exposureLine(exposure(), CHAIN)).toBe("$1,044,395 custodied here");
+    expect(exposureLine(exposure({ basis: "circulating" }), CHAIN)).toBe(
+      `$1,044,395 circulating on ${CHAIN}`
+    );
+  });
+
+  it("says NO FEED for an unpriceable asset — never $0, never blank, never a dash", () => {
+    // Three of six take this path, so it is the common case. Each of the three
+    // alternatives reads as a claim: $0 says worthless, blank and — say broken.
+    const line = exposureLine(UNPRICEABLE, CHAIN);
+    expect(line).toBe("no FTSO feed · holding not priced");
+    expect(line).toContain("no FTSO feed");
+    expect(line).not.toContain("$");
+    expect(line).not.toBe("");
+    expect(line).not.toContain("—");
+  });
+
+  it("says the read did not happen, rather than showing a zero", () => {
+    for (const missing of [null, undefined]) {
+      expect(exposureLine(missing, CHAIN)).toBe("holding not read this cycle");
+      expect(exposureLine(missing, CHAIN)).not.toContain("$");
+    }
+  });
+
+  it("declines to price a stale feed, and says which read is missing in each other case", () => {
+    expect(exposureLine(exposure({ stale: true, priceUsd: null, valueUsd: null }), CHAIN)).toBe(
+      "FTSO feed stale · holding not priced"
+    );
+    expect(exposureLine(exposure({ priceUsd: null, valueUsd: null }), CHAIN)).toBe(
+      "FTSO price not read this cycle"
+    );
+    // "not reported", not "not read this cycle". The exposure object ARRIVED, so
+    // the chain answered and the contract declined — which for some contracts is
+    // true on every cycle, forever, and "this cycle" would promise a number that
+    // is never coming.
+    expect(exposureLine(exposure({ amount: null, valueUsd: null }), CHAIN)).toBe(
+      "amount not reported · holding not priced"
+    );
+    expect(exposureLine(exposure({ decimals: null, valueUsd: null }), CHAIN)).toBe(
+      "token decimals not reported · holding not priced"
+    );
+  });
+
+  it("tolerates a payload from an OLDER instance instead of printing its number", () => {
+    // api.ts promises this page renders an instance that predates the field.
+    // The shape 4d7e224 served carried `supply`, not `amount`, and it carried
+    // the very figure this rewrite deleted — the underlying's whole supply. A
+    // strict `=== null` let that object past every guard and rendered a bare
+    // "$26,407,467" with no basis noun: the fabricated number, printed by the
+    // code that removed it. Cast at the boundary, exactly as JSON arrives.
+    const legacy = {
+      feed: "USDT/USD",
+      supply: "26421206049139",
+      decimals: 6,
+      priceUsd: 0.99937,
+      valueUsd: 26_407_467,
+      feedTimestamp: 1,
+      stale: false,
+      readAt: Date.UTC(2026, 7, 8, 1, 26, 0),
+      pricedToken: UNDERLYING_ADDR,
+    } as unknown as ExposureRead;
+
+    expect(exposureLine(legacy, CHAIN)).toBe("amount not reported · holding not priced");
+    expect(exposureLine(legacy, CHAIN)).not.toContain("$");
+    expect(exposureLine(legacy, CHAIN)).not.toContain("26,407,467");
+    // and nothing downstream attributes an amount that was never served
+    expect(exposureBasis(legacy)).toBeNull();
+    expect(exposureTokenNote(legacy, ASSET_ADDR)).toBeNull();
+    expect(mintNote(legacy)).toBeNull();
+    // the provenance line still works — the feed fields did not move
+    expect(exposureSource(legacy)).toContain("USDT/USD from FTSOv2");
+  });
+
+  it("treats an undefined amount or decimals as unknown, never as zero", () => {
+    expect(tokenAmount(undefined, 6)).toBeNull();
+    expect(tokenAmount("1000000", undefined)).toBeNull();
+  });
+
+  it("never renders $0 for anything that was not measured", () => {
+    const unmeasured = [
+      null,
+      undefined,
+      UNPRICEABLE,
+      exposure({ stale: true, priceUsd: null, valueUsd: null }),
+      exposure({ priceUsd: null, valueUsd: null }),
+      exposure({ amount: null, valueUsd: null }),
+    ];
+    for (const e of unmeasured) {
+      expect(exposureLine(e, CHAIN), `${JSON.stringify(e)} rendered a dollar figure`).not.toMatch(/\$/);
+    }
+  });
+
+  it("explains a MEASURED zero on the row rather than leaving it looking broken", () => {
+    // A lockbox that holds nothing because it mints on arrival. The zero is the
+    // real answer and stays the primary figure; the row says why.
+    const line = exposureLine(exposure({ amount: "0", valueUsd: 0, mintsOnArrival: true }), CHAIN);
+    expect(line).toBe("$0.00 custodied here · mints on arrival");
+  });
+
+  it("does not append the mint marker to a plain zero", () => {
+    expect(exposureLine(exposure({ amount: "0", valueUsd: 0 }), CHAIN)).toBe("$0.00 custodied here");
+  });
+});
+
+describe("mintNote", () => {
+  it("explains the zero in plain language on the one shape that produces it", () => {
+    expect(mintNote(exposure({ mintsOnArrival: true }))).toBe(MINTS_ON_ARRIVAL_NOTE);
+    expect(MINTS_ON_ARRIVAL_NOTE).toContain("holds nothing");
+    expect(MINTS_ON_ARRIVAL_NOTE).toContain("mints the token when a message arrives");
+  });
+
+  it("quotes no substitute number", () => {
+    // The token's total supply exists and is not this contract's holding.
+    // Putting it here is the substitution the whole rewrite exists to prevent.
+    expect(MINTS_ON_ARRIVAL_NOTE).not.toMatch(/\$|\d/);
+  });
+
+  it("is absent on every other row, so it never reads as boilerplate", () => {
+    expect(mintNote(exposure())).toBeNull();
+    expect(mintNote(UNPRICEABLE)).toBeNull();
+    expect(mintNote(null)).toBeNull();
+    expect(mintNote(undefined)).toBeNull();
+  });
+});
+
+describe("exposureSource", () => {
+  it("names the feed, names the oracle, and says when this instance read it", () => {
+    const src = exposureSource(exposure());
+    expect(src).toBe("XRP/USD from FTSOv2, read 2026-08-08 01:26 UTC.");
+    expect(src).toContain("XRP/USD"); // the feed
+    expect(src).toContain("FTSOv2"); // who supplied it
+    expect(src).toContain("2026-08-08 01:26 UTC"); // when it was read
+  });
+
+  it("still states provenance when there is no feed to name", () => {
+    expect(exposureSource(UNPRICEABLE)).toBe(
+      "This ticker has no FTSOv2 feed, so this page states no price for it."
+    );
+  });
+
+  it("says nothing was read, rather than leaving the panel silent", () => {
+    expect(exposureSource(null)).toBe("This instance did not read a price this cycle.");
+    expect(exposureSource(undefined)).toBe("This instance did not read a price this cycle.");
+  });
+});
+
+describe("exposureBasis", () => {
+  it("shows the multiplication a reader can redo, with the right noun on it", () => {
+    expect(exposureBasis(exposure())).toBe("balance held 1,000,000 × $1.044395");
+    expect(exposureBasis(exposure({ basis: "circulating" }))).toBe(
+      "total supply 1,000,000 × $1.044395"
+    );
+  });
+
+  it("is absent rather than half-shown when either input is missing", () => {
+    expect(exposureBasis(UNPRICEABLE)).toBeNull();
+    expect(exposureBasis(null)).toBeNull();
+    expect(exposureBasis(exposure({ amount: null }))).toBeNull();
+    expect(exposureBasis(exposure({ decimals: null }))).toBeNull();
+    expect(exposureBasis(exposure({ priceUsd: null }))).toBeNull();
+  });
+});
+
+describe("exposureTokenNote", () => {
+  // A watched address is the OFT, and the OFT is not always the contract the
+  // amount came off. When they differ, a figure sitting above a link to the OFT
+  // is a number attributed to the wrong contract, so the panel says where it
+  // came from.
+  it("names the contract the amount came from when it is not the one the row links to", () => {
+    const note = exposureTokenNote(exposure({ pricedToken: UNDERLYING_ADDR }), ASSET_ADDR);
+    expect(note).toBe(`Read from ${short(UNDERLYING_ADDR)}, the token this OFT moves.`);
+  });
+
+  it("says nothing when the amount came off the asset's own contract", () => {
+    expect(exposureTokenNote(exposure(), ASSET_ADDR)).toBeNull();
+    // …in either casing: an address is not case-sensitive and a note that
+    // appeared because of capitalisation would be noise on every row.
+    expect(exposureTokenNote(exposure({ pricedToken: ASSET_ADDR.toUpperCase() }), ASSET_ADDR)).toBeNull();
+  });
+
+  it("says nothing when there is no amount to attribute", () => {
+    expect(exposureTokenNote(exposure({ amount: null, pricedToken: UNDERLYING_ADDR }), ASSET_ADDR)).toBeNull();
+    expect(exposureTokenNote(exposure({ pricedToken: null }), ASSET_ADDR)).toBeNull();
+    expect(exposureTokenNote(null, ASSET_ADDR)).toBeNull();
+    expect(exposureTokenNote(undefined, ASSET_ADDR)).toBeNull();
+  });
+});
+
+describe("sortByExposure", () => {
+  const asset = (id: string, e: ExposureRead | null) => ({ id, exposure: e });
+
+  it("ranks the fleet by the priced holding, with everything unpriceable last", () => {
+    const out = sortByExposure([
+      asset("small", exposure({ valueUsd: 10 })),
+      asset("none", UNPRICEABLE),
+      asset("big", exposure({ valueUsd: 1_000_000 })),
+      asset("unread", null),
+      asset("mid", exposure({ valueUsd: 5_000 })),
+    ]);
+    expect(out.map((a) => a.id)).toEqual(["big", "mid", "small", "none", "unread"]);
+  });
+
+  it("is stable, so the tail does not reshuffle on every poll", () => {
+    // Three of six assets are unpriceable — a third of the grid — and a
+    // comparator that reordered ties would move those tiles on each 60s refresh
+    // for no reason a reader could see.
+    const tail = [asset("a", UNPRICEABLE), asset("b", null), asset("c", UNPRICEABLE)];
+    expect(sortByExposure(tail).map((a) => a.id)).toEqual(["a", "b", "c"]);
+    expect(
+      sortByExposure([asset("x", exposure({ valueUsd: 7 })), asset("y", exposure({ valueUsd: 7 }))]).map(
+        (a) => a.id
+      )
+    ).toEqual(["x", "y"]);
+  });
+
+  it("does not mutate the array it was given", () => {
+    const input = [asset("a", null), asset("b", exposure())];
+    const before = input.map((a) => a.id);
+    sortByExposure(input);
+    expect(input.map((a) => a.id)).toEqual(before);
+  });
+
+  it("treats an asset with no exposure field at all as unpriced", () => {
+    const out = sortByExposure([{ id: "bare" }, { id: "priced", exposure: exposure() }]);
+    expect(out.map((a) => a.id)).toEqual(["priced", "bare"]);
+    expect(exposureValue(undefined)).toBeNull();
+    expect(exposureValue(UNPRICEABLE)).toBeNull();
+    expect(exposureValue(exposure())).toBe(1_044_395);
+  });
+});
+
+describe("EXPOSURE_NOTE", () => {
+  it("says plainly that the figure does not affect the score", () => {
+    // The whole determinism claim rides on this sentence being on the page. A
+    // judge who sees a dollar figure on a page of scores assumes it feeds them.
+    expect(EXPOSURE_NOTE).toContain("does not affect the score");
+    expect(EXPOSURE_NOTE).toContain("FTSOv2");
+    expect(EXPOSURE_NOTE).toContain("configuration rules alone");
+  });
+
+  it("names both bases, because the grid shows both", () => {
+    expect(EXPOSURE_NOTE).toContain("custodies");
+    expect(EXPOSURE_NOTE).toContain("circulating");
+  });
+
+  it("does not call itself a risk model", () => {
+    // It is a measured holding priced by an oracle. "Value at risk" is a term of
+    // art for something this is not, and the page said it until fix round 1.
+    expect(EXPOSURE_NOTE.toLowerCase()).not.toContain("value at risk");
+    expect(EXPOSURE_NOTE.toLowerCase()).not.toContain("risk");
+  });
+
+  it("names no chain, no asset and no address", () => {
+    expect(EXPOSURE_NOTE).not.toMatch(/0x[0-9a-fA-F]{2,}/);
+    expect(EXPOSURE_NOTE).not.toMatch(/exploit|incident|attack|breach|hack/i);
+  });
+});
+
+
 // ── the extraction has to stay the page's real logic ─────────────────────────
 
 describe("the rail page uses this module", () => {
@@ -747,6 +1151,46 @@ describe("the rail page uses this module", () => {
     expect(src, "the stale mark reads the rendered string instead of the flag").not.toContain(
       'includes("STALE")'
     );
+  });
+
+  // Third statement of the same kind, and the one with the most riding on it: a
+  // dollar figure now sits on every tile of the collapsed grid, and a number on
+  // a page of scores is read as an input to those scores unless the page says
+  // otherwise. Rendered inside a panel it would only reach the readers who
+  // opened one, so the position is checked, not just the presence.
+  it("states, at page level, that the price does not affect the score", () => {
+    expect(src).toContain("{EXPOSURE_NOTE}");
+    expect(src.indexOf("{EXPOSURE_NOTE}")).toBeGreaterThan(
+      src.indexOf("export function FlareRailStatus")
+    );
+  });
+
+  it("shows the value on the tile and the provenance in the panel", () => {
+    // The tile line is what the grid is sorted by, so it has to be the same
+    // function the sort reads — not a second copy that could disagree with it.
+    expect(src).toContain("exposureLine(w.exposure ?? null, chainNameFor(w.chainId))");
+    expect(src).toContain("sortByExposure(");
+    // Feed name, oracle and read time live in exposureSource; a panel that
+    // dropped it would state a figure with no way to check it.
+    expect(src).toContain("exposureSource(exposure)");
+    // Ours and everyone else's both render it: supply and price are chain facts.
+    expect(src).toContain("<ExposureBlock exposure={w.exposure ?? null} assetAddress={w.address}");
+    expect(src).toContain("<ExposureBlock exposure={exposure} assetAddress={id.address}");
+    // The chain name is derived from /status, never written down in the page.
+    expect(src).toContain("chain={chainNameFor(w.chainId)}");
+  });
+
+  // Third statement of the same class, and it is on the shape a LIVE row takes:
+  // the one lockbox on this fleet custodies nothing, so its $0 is on the page
+  // every cycle. Deleting the import, the call and the JSX together leaves the
+  // generic "imported and never used" guard silent — that guard cannot see a
+  // symbol that is no longer imported. This one can.
+  it("renders the explanation for a measured zero, not just the zero", () => {
+    expect(src).toContain("mintNote(exposure)");
+    expect(src).toContain("{mint && (");
+    // and it renders inside the block a reader reaches, not above the fold of a
+    // component that is never mounted
+    expect(src.indexOf("mintNote(exposure)")).toBeGreaterThan(src.indexOf("function ExposureBlock"));
   });
 
   it("states the withholding at page level, not only inside a panel", () => {

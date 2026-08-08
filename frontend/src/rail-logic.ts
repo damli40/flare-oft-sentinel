@@ -425,6 +425,240 @@ export function ago(ts: number | null | undefined, now: number): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+// ── What each contract holds, and where the number came from ──────────────────
+//
+// A holding and a price are PUBLIC CHAIN FACTS: anyone can read a balance and
+// anyone can read the enshrined oracle. They are not findings, so this section
+// is outside the withholding decision isDemoAsset() makes and every asset gets
+// a line. Nothing here touches that function or what it gates.
+//
+// This is NOT a risk model and the copy never calls it one. It is a measured
+// holding, priced by FTSOv2, and the words on the page say exactly that.
+//
+// Three things this must never do, and each has a function below enforcing it:
+//
+//   * price an asset that has no feed. Three of the six watched assets have
+//     none, so the unpriceable path is the COMMON one, not the edge case. It
+//     says "no FTSO feed" — never $0, never blank, never a dash, all three of
+//     which read as either "worthless" or "broken";
+//   * show a number without the noun that makes it mean something. A contract
+//     that CUSTODIES $13.5M and a token that has $155M CIRCULATING are different
+//     claims, so basisLabel() puts the noun on the row rather than in a
+//     footnote;
+//   * let a reader think the price moved the score. It cannot: the rule engine
+//     reads the config snapshot and neither a price nor a balance is one of its
+//     inputs. That is stated on the page, in EXPOSURE_NOTE, rather than left to
+//     be inferred.
+
+/** Which question this row's number answers. */
+export type HoldingBasis = "custodied" | "circulating";
+
+/** The holding fields `/status` serves per asset. Structural, like every other
+ *  type in this file — `api.ts`'s `AssetExposure` is checked against it at the
+ *  call site. Every field is separately nullable because every one is a read
+ *  that can fail on its own. */
+export interface ExposureRead {
+  feed: string | null;
+  /** Raw amount held, on the basis `basis` names. */
+  amount: string | null;
+  decimals: number | null;
+  basis: HoldingBasis | null;
+  priceUsd: number | null;
+  valueUsd: number | null;
+  feedTimestamp: number | null;
+  stale: boolean;
+  readAt: number;
+  /** Which contract the amount was read from. A watched OFT and the ERC20 it
+   *  moves are not always the same contract, so a page stating a figure has to
+   *  be able to say where it came from. */
+  pricedToken: string | null;
+  /** A lockbox holding nothing because it mints on arrival. */
+  mintsOnArrival: boolean;
+}
+
+/** Trailing zeros a fixed-precision format left behind. "0.999480" is the same
+ *  number as "0.99948" and one of them looks like a rounding artefact. */
+function trimZeros(s: string): string {
+  return s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
+}
+
+/** A USD total. Two decimals under a thousand, none above it — cents on a
+ *  nine-figure number are noise, and a hundred-million-dollar figure written to
+ *  the cent claims a precision the read does not have. */
+export function usd(n: number): string {
+  const digits = Math.abs(n) < 1000 ? 2 : 0;
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+}
+
+/** A USD price per token. Kept at six significant figures rather than two
+ *  decimals: several feeds sit far below a cent, and usd() would render every
+ *  one of them as "$0.00" — a real price shown as no price. */
+export function priceLine(n: number): string {
+  if (Math.abs(n) >= 1) {
+    return `$${trimZeros(n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }))}`;
+  }
+  return `$${trimZeros(n.toPrecision(6))}`;
+}
+
+/** Raw amount scaled by the token's own decimals.
+ *
+ *  The division happens in bigint, before anything becomes a float: an
+ *  18-decimal token with a billions-scale supply carries a ~10^27 raw value,
+ *  and Number() past 2^53 silently rounds. Returns null when either input was
+ *  not read — an unknown scale is never guessed at 18. */
+export function tokenAmount(
+  amount: string | null | undefined,
+  decimals: number | null | undefined
+): number | null {
+  // `== null` on both: an older instance's payload carries neither key, and a
+  // missing input must read as "not known", never as 0.
+  if (amount == null || decimals == null || decimals < 0) return null;
+  let raw: bigint;
+  try {
+    raw = BigInt(amount);
+  } catch {
+    return null;
+  }
+  const scale = 10n ** BigInt(decimals);
+  return Number(raw / scale) + Number(raw % scale) / Number(scale);
+}
+
+/** A token count, whole units. */
+export function amountLine(n: number): string {
+  return n.toLocaleString("en-US", { maximumFractionDigits: n < 1 ? 6 : 0 });
+}
+
+/** The noun that makes the figure mean something. Without it "$13,503,764" is
+ *  an unattributed number, and the two bases are not interchangeable: one is
+ *  what this contract holds, the other is what exists on the chain.
+ *
+ *  The chain name is PASSED IN, from /status, never written down here. */
+export function basisLabel(basis: HoldingBasis | null, chain: string | null): string | null {
+  if (basis === "custodied") return "custodied here";
+  if (basis === "circulating") return chain ? `circulating on ${chain}` : "circulating on this chain";
+  return null;
+}
+
+/** The one line a tile and a panel both carry. Every branch that is not a real
+ *  priced figure says which read is missing, and none of them says zero.
+ *
+ *  The amount branches say "not reported" rather than "not read this cycle", and
+ *  the difference is not cosmetic. The whole exposure object is absent when the
+ *  READ failed — that is the "this cycle" case, and it is transient. An exposure
+ *  that arrived with a null amount means the chain answered and the contract
+ *  declined, which for some contracts is true on every cycle, forever; "not read
+ *  this cycle" would promise a number that is never coming. */
+export function exposureLine(e: ExposureRead | null | undefined, chain: string | null): string {
+  if (!e) return "holding not read this cycle";
+  if (e.feed === null) return "no FTSO feed · holding not priced";
+  if (e.stale) return "FTSO feed stale · holding not priced";
+  if (e.priceUsd === null) return "FTSO price not read this cycle";
+  // `== null`, not `=== null`. api.ts promises this page tolerates an older
+  // instance, and an older instance served this object under a DIFFERENT KEY
+  // (`supply`, before fix round 1 renamed it). A strict check lets that shape
+  // fall through every guard below and render a bare dollar figure with no
+  // basis noun — the exact fabricated number this rewrite removed, printed by
+  // the code that removed it. Undefined is not read; it is not a number either.
+  if (e.amount == null) return "amount not reported · holding not priced";
+  if (e.decimals === null) return "token decimals not reported · holding not priced";
+  if (e.valueUsd === null) return "holding not priced";
+  const label = basisLabel(e.basis, chain);
+  const value = label ? `${usd(e.valueUsd)} ${label}` : usd(e.valueUsd);
+  // A measured zero is a real answer, and on this shape it has a real reason.
+  // Saying it on the ROW keeps a reader in the grid from reading it as a bug.
+  return e.mintsOnArrival ? `${value} · mints on arrival` : value;
+}
+
+/** Why a lockbox that holds nothing is holding nothing. Null for every other
+ *  row, so it never appears as boilerplate.
+ *
+ *  Deliberately does NOT quote the token's total supply. That number exists and
+ *  it is not this contract's holding; putting it here is exactly the
+ *  substitution this whole section was rewritten to prevent. */
+export const MINTS_ON_ARRIVAL_NOTE =
+  "This contract holds nothing. It mints the token when a message arrives instead of " +
+  "releasing it from a vault, so there is no custodied balance to price.";
+
+export function mintNote(e: ExposureRead | null | undefined): string | null {
+  return e?.mintsOnArrival ? MINTS_ON_ARRIVAL_NOTE : null;
+}
+
+/** Where the number came from and when, for the panel. A figure on a scoring
+ *  page with no provenance is a figure a reader has to take on trust, and this
+ *  one is checkable: the feed is named, the oracle is named, and the read time
+ *  is the instance's own. */
+export function exposureSource(e: ExposureRead | null | undefined): string {
+  if (!e) return "This instance did not read a price this cycle.";
+  if (e.feed === null) return "This ticker has no FTSOv2 feed, so this page states no price for it.";
+  return `${e.feed} from FTSOv2, read ${utc(e.readAt)}.`;
+}
+
+/** The arithmetic behind the figure, so a reader can redo it — and the noun
+ *  again, because the multiplication is only checkable if you know what was
+ *  multiplied. Null when either input is missing: a half-shown multiplication is
+ *  worse than none. */
+export function exposureBasis(e: ExposureRead | null | undefined): string | null {
+  if (!e || e.priceUsd === null) return null;
+  const amount = tokenAmount(e.amount, e.decimals);
+  if (amount === null) return null;
+  const noun = e.basis === "circulating" ? "total supply" : "balance held";
+  return `${noun} ${amountLine(amount)} × ${priceLine(e.priceUsd)}`;
+}
+
+/** Which contract the amount came from, when that is not the contract the row
+ *  links to. A figure sitting above a link to a different address is a number
+ *  attributed to the wrong place. Null when they match, when there is no amount,
+ *  or when the instance does not serve the field. */
+export function exposureTokenNote(
+  e: ExposureRead | null | undefined,
+  assetAddress: string
+): string | null {
+  // `== null` for the same reason as exposureLine: a payload from an older
+  // instance carries no `amount` key at all, and attributing an amount that was
+  // never served to a contract is worse than saying nothing.
+  if (!e || e.amount == null || !e.pricedToken) return null;
+  if (e.pricedToken.toLowerCase() === assetAddress.toLowerCase()) return null;
+  return `Read from ${short(e.pricedToken)}, the token this OFT moves.`;
+}
+
+/** The sort key. Null for anything unpriced, which sorts last. */
+export function exposureValue(e: ExposureRead | null | undefined): number | null {
+  return e?.valueUsd ?? null;
+}
+
+/** The fleet ordered by the size of the priced holding, biggest first, with
+ *  everything unpriceable or unread last in the order it arrived.
+ *
+ *  Stable on purpose: three of the six watched assets have no feed, so the tail
+ *  is a third of the grid, and a comparator that reshuffled ties would move
+ *  tiles around on every poll for no reason a reader could see. */
+export function sortByExposure<T extends { exposure?: ExposureRead | null }>(items: T[]): T[] {
+  return items
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => {
+      const av = exposureValue(a.item.exposure);
+      const bv = exposureValue(b.item.exposure);
+      if (av === null && bv === null) return a.i - b.i;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return bv === av ? a.i - b.i : bv - av;
+    })
+    .map((x) => x.item);
+}
+
+/** Said at page level, next to the withholding line, because a dollar figure
+ *  sitting on a scoring page is read as an input to the score unless the page
+ *  says otherwise — and the determinism claim this whole build rests on is
+ *  exactly that the score is a function of the config and the rules.
+ *
+ *  It also names both bases, because the grid shows both and a reader comparing
+ *  two rows is entitled to know they answer different questions. */
+export const EXPOSURE_NOTE =
+  "Each row shows a measured holding priced by FTSOv2: what the contract itself custodies, " +
+  "or what its token has circulating on this chain. It does not affect the score. " +
+  "The score comes from the configuration rules alone.";
+
+
 // ── The DVN metadata this fleet was scored against ────────────────────────────
 
 /** When the DVN metadata table was fetched, and whether the instance is serving

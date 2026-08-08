@@ -8,27 +8,34 @@ import type { SentinelStatus, SentinelVerdict, WatchedStatus } from "../api.ts";
 // the two behaviour fixes below (a stale verdict, an unreadable ULN) and the
 // grid's insertion arithmetic have tests at all.
 import {
+  EXPOSURE_NOTE,
   META_CAVEAT,
   WITHHELD_LINE,
   ago,
   columnsFor,
   detailAfterIndex,
   dvnName,
+  exposureBasis,
+  exposureLine,
+  exposureSource,
+  exposureTokenNote,
   findingsLine,
   fleetLine,
   isDemoAsset,
   keyed,
   metaLine,
+  mintNote,
   publicRead,
   routesOf,
   short,
+  sortByExposure,
   structuralNote,
   utc,
   verdictIsStale,
   verificationOf,
   withheldNote,
 } from "../rail-logic.ts";
-import type { AssetIdentity, PublicRead, RouteRead, StructuralRoute } from "../rail-logic.ts";
+import type { AssetIdentity, ExposureRead, PublicRead, RouteRead, StructuralRoute } from "../rail-logic.ts";
 
 // ── Page constants ────────────────────────────────────────────────────────────
 // One judge-facing page: what the Sentinel instance currently reads off the
@@ -230,6 +237,65 @@ function RouteBlock({ route }: { route: RouteRead }) {
   );
 }
 
+/** What this rail is worth at the price the enshrined oracle last published, the
+ *  arithmetic behind it, and where the number came from.
+ *
+ *  Rendered for EVERY asset, ours or anyone else's. A token's total supply and a
+ *  public price feed are chain facts any reader can call for themselves, so they
+ *  are not part of what this page withholds — the withholding is about findings,
+ *  and isDemoAsset() still decides that on its own, unchanged.
+ *
+ *  This block states a value and never grades one. It also cannot move a verdict:
+ *  the score comes from the rule engine reading the config snapshot, and a price
+ *  is not one of its inputs. EXPOSURE_NOTE says that at page level, where a
+ *  reader who never opens a panel still sees it. */
+function ExposureBlock({
+  exposure,
+  assetAddress,
+  chain,
+}: {
+  exposure: ExposureRead | null;
+  assetAddress: string;
+  chain: string | null;
+}) {
+  const basis = exposureBasis(exposure);
+  const tokenNote = exposureTokenNote(exposure, assetAddress);
+  const mint = mintNote(exposure);
+  return (
+    <div>
+      <SectionLabel>Holding</SectionLabel>
+      <div style={{ fontSize: 13.5, color: "var(--text-2)", lineHeight: 1.55 }}>
+        {exposureLine(exposure, chain)}
+      </div>
+      {/* Why a real zero is a real zero. Only on the one shape that produces it,
+          so it never reads as boilerplate — and it does NOT quote the token's
+          total supply, which is a different number about a different question. */}
+      {mint && (
+        <div style={{ fontSize: 12.5, color: "var(--faint)", lineHeight: 1.5, marginTop: 8 }}>{mint}</div>
+      )}
+      {/* The multiplication, when both of its inputs were read. Absent rather
+          than half-shown: "balance held … × " with nothing after it would be a
+          worse artefact than no line. */}
+      {basis && (
+        <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--faint)", marginTop: 8 }}>
+          {basis}
+        </div>
+      )}
+      <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--faint)", marginTop: 6 }}>
+        {exposureSource(exposure)}
+      </div>
+      {/* Only when the amount came off a different contract than the one this
+          panel links to. A figure attributed to the wrong address is worse than
+          no figure. */}
+      {tokenNote && (
+        <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--faint)", marginTop: 6 }}>
+          {tokenNote}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Findings({ reasons }: { reasons: string[] }) {
   if (reasons.length === 0) {
     return (
@@ -349,10 +415,20 @@ function StructuralRouteBlock({ r }: { r: StructuralRoute }) {
   );
 }
 
-function RailBody({ id, read, note }: { id: AssetIdentity; read: PublicRead; note: string }) {
+// The signature stays on ONE line. rail-logic.test.ts reads this function's body
+// by slicing to the first brace at column 0, so a multi-line prop destructuring
+// would end the slice at `}: {` and quietly shrink the leak guard below to the
+// four prop names.
+function RailBody({ id, read, note, exposure, chain }: { id: AssetIdentity; read: PublicRead; note: string; exposure: ExposureRead | null; chain: string | null }) {
   return (
     <div className="bd" style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: "var(--text-2)" }}>{note}</p>
+
+      {/* A fourth narrow prop, not a widening. ExposureRead carries a feed name,
+          a price, a supply and two timestamps — there is no field on it capable
+          of holding a finding, a verifier's name or a remediation string, so the
+          guarantee the prop types make on this path is unchanged. */}
+      <ExposureBlock exposure={exposure} assetAddress={id.address} chain={chain} />
 
       <div>
         <SectionLabel>Findings</SectionLabel>
@@ -407,6 +483,10 @@ function DemoBody({
       <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: "var(--text-2)" }}>
         {demoNote(chainNameFor(w.chainId))}
       </p>
+
+      {/* Same block, same source, on our own asset as on anyone else's. This one
+          has no feed, so it says so rather than showing a zero. */}
+      <ExposureBlock exposure={w.exposure ?? null} assetAddress={w.address} chain={chainNameFor(w.chainId)} />
 
       <div>
         <SectionLabel>Findings</SectionLabel>
@@ -583,6 +663,13 @@ function FleetTile({
         <span className="rt-sub" style={{ color: "var(--faint)" }}>
           {findingsLine(w.assessment?.reasons?.length ?? 0)}
         </span>
+        {/* What is at stake on this rail, which is also the key the grid is
+            sorted by. It is not a verdict and it is not an input to one — the
+            page says so above the grid, where a reader who opens no tile at all
+            still reads it. */}
+        <span className="rt-sub" style={{ color: "var(--faint)" }}>
+          {exposureLine(w.exposure ?? null, chainNameFor(w.chainId))}
+        </span>
         <span className="rt-cue" aria-hidden="true">
           {open ? "−" : "+"}
         </span>
@@ -661,6 +748,8 @@ function DetailPanel({
           id={{ address: w.address, chainId: w.chainId, lastSnapshotAt: w.lastSnapshotAt }}
           read={publicRead(w.assessment?.reasons ?? [], routes)}
           note={structuralNote(verificationOf(routes))}
+          exposure={w.exposure ?? null}
+          chain={chainNameFor(w.chainId)}
         />
       )}
     </section>
@@ -715,9 +804,11 @@ export function FlareRailStatus() {
   // asset can share. It fails closed: before the chain list loads, every asset
   // reads as a third party's and its findings stay withheld.
   const isDemo = (w: WatchedStatus) => isDemoAsset(w, chainRefs);
-  // The demo OFT is a tile like any other, marked as ours, and sorted last so
-  // the live rails read first.
-  const assets = [...watched.filter((w) => !isDemo(w)), ...watched.filter(isDemo)];
+  // The live rails are ordered by what is at stake on them, biggest first, with
+  // the unpriceable ones last in the order the instance served them. The demo
+  // OFT stays after all of them regardless of where its value would put it: it
+  // is a tile like any other, marked as ours, and the live rails read first.
+  const assets = [...sortByExposure(watched.filter((w) => !isDemo(w))), ...watched.filter(isDemo)];
   const keyOf = (w: WatchedStatus) => `${w.chainId}-${w.address}`;
 
   // Chain names come only from /status — never hardcoded, so the scope line
@@ -899,6 +990,23 @@ export function FlareRailStatus() {
             }}
           >
             {WITHHELD_LINE}
+          </p>
+          {/* Said HERE for the same reason the line above it is: the default
+              state of this page is the collapsed grid, and every tile in it now
+              carries a dollar figure. A number on a page of scores is read as an
+              input to those scores unless the page says otherwise, and this one
+              is not — the rule engine reads the configuration and never a price.
+              A reader who opens no tile still reads this. */}
+          <p
+            style={{
+              margin: "0 0 16px",
+              maxWidth: 760,
+              fontSize: 13,
+              lineHeight: 1.55,
+              color: "var(--text-2)",
+            }}
+          >
+            {EXPOSURE_NOTE}
           </p>
           <div
             className="rail-fleet"

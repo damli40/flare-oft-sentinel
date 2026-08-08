@@ -43,11 +43,19 @@ flowchart TB
     agent --> val
     val -.-> rules
 
+    ftso["FTSOv2 · the oracle enshrined in Flare's consensus<br/>0x7BDE3Df0…c1d20 · free eth_call, no fee<br/>prices what each contract custodies:<br/>lockbox balance, native balance, or supply<br/>ranks the fleet, never scores it"]
+
     tis["tis[] · one entry per fixable finding<br/>intent, the state read, the state wanted,<br/>and the score that fix would produce"]
     fix["ROADMAP, NOT BUILT<br/>emit the setConfig call itself,<br/>so an operator reviews a transaction<br/>instead of a description of one.<br/>Read tools stay read tools."]
 
     scope --> read
     lz --> rules
+    %% Deliberately NO edge in from the RPC node. The label already says it is a
+    %% free eth_call, and drawing the inbound edge pushed this node under stage 2,
+    %% which routed its ONE outgoing arrow across the attest gate. On a diagram
+    %% whose whole claim is that the price reaches neither scoring nor signing,
+    %% an arrow that appears to touch either is worse than a missing one.
+    ftso -->|"holdings, priced"| api
     score --> gate
     score --> api
     score --> tis
@@ -70,7 +78,9 @@ flowchart TB
     classDef roadmap fill:#fafafa,stroke:#9a9aa8,color:#55555f,stroke-dasharray: 6 4
     class fix roadmap
     class gate,filt gateStyle
-    class reg chain
+    %% Blue with the registry, because both are reads of Flare's own contracts.
+    %% It deliberately has NO edge into score.ts: the absence is the claim.
+    class reg,ftso chain
     class nosign quiet
 
     %% The three numbered stages read as one surface; the two GATES are the

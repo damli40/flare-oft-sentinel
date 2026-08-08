@@ -107,6 +107,49 @@ export interface DvnCorridor {
   } | null;
 }
 
+/** Which question an asset's number answers. The two are NOT interchangeable:
+ *  `custodied` is what the watched contract itself holds — an adapter's balance
+ *  of the token it locks, or a native-coin OFT's own coin balance — and
+ *  `circulating` is a plain mint-and-burn OFT's own total supply. Serving one
+ *  under the other's label overstates by whatever fraction of the supply is not
+ *  actually locked here. */
+export type HoldingBasis = "custodied" | "circulating";
+
+/** What one watched asset holds, priced by the enshrined FTSOv2 oracle, as
+ *  `/status` serves it.
+ *
+ *  Every field is nullable and the whole object is optional, because every one
+ *  of them is a read that can fail on its own: `feed` is null when the ticker has
+ *  no feed at all, `priceUsd` is null when the feed was not read or came back
+ *  stale, and `valueUsd` is null unless amount, decimals AND price all resolved.
+ *  Null means "not known", never zero — a `$0` printed for an unread balance is
+ *  absence displayed as a value.
+ *
+ *  `amount` is a raw decimal string (JSON has no bigint) and is scaled by
+ *  `decimals`. NOTHING here reaches the score: the rule engine reads the config
+ *  snapshot and neither a price nor a balance is one of its inputs. */
+export interface AssetExposure {
+  feed: string | null;
+  amount: string | null;
+  decimals: number | null;
+  basis: HoldingBasis | null;
+  priceUsd: number | null;
+  valueUsd: number | null;
+  /** Seconds, as the feed itself reported it — not the time we read it. */
+  feedTimestamp: number | null;
+  stale: boolean;
+  /** Milliseconds: when this instance read the feed. */
+  readAt: number;
+  /** The contract the amount was read from. A watched OFT and the ERC20 it moves
+   *  are not always the same address, so a page stating a figure can say which
+   *  contract it came from instead of leaving a reader to assume it was the one
+   *  the row links to. */
+  pricedToken: string | null;
+  /** A lockbox-shaped OFT that custodies nothing because it mints on arrival.
+   *  Served so a real $0 can be explained rather than read as a broken number. */
+  mintsOnArrival: boolean;
+}
+
 export interface WatchedStatus {
   ticker: string;
   address: string;
@@ -123,6 +166,9 @@ export interface WatchedStatus {
   dvnSummary: { requiredCount: number; optionalThreshold: number; effectiveCount: number; requiredDVNs: string[]; optionalDVNs: string[] } | null;
   dvnNames: Record<string, string> | null;
   dvnCorridors?: DvnCorridor[] | null;
+  /** Optional: an older instance does not serve it, and an instance whose price
+   *  read failed serves null. Both render as unread, never as zero. */
+  exposure?: AssetExposure | null;
 }
 
 /** A chain the Sentinel currently watches — served by /status, derived from the

@@ -6,6 +6,7 @@ import { assessSnapshot, RULES_VERSION } from "../services/drift.js";
 import { generateReport } from "../services/report.js";
 import { askCopilot } from "../services/ask.js";
 import { loadDvnMeta, resolveDvn, dvnMetaHash, MetadataUnavailableError, type DvnMeta } from "../services/lz-config.js";
+import { readFleetExposure, exposureKey } from "../services/exposure.js";
 import { getChainRef, getChainRefByKey, chainDisplayName, sentinelChain, explorerBase } from "../services/chain-registry.js";
 import { requireAdmin } from "./require-admin.js";
 import type { CustodyDeclaration, Finding, OftSnapshot } from "../types.js";
@@ -119,6 +120,17 @@ router.get("/status", async (_req: Request, res: Response) => {
     }
     throw e;
   }
+  // What each watched asset is worth at the price the enshrined oracle last
+  // published. This is a SEPARATE read from everything below it and it is
+  // deliberately awaited before the verdicts are built rather than inside them:
+  // readFleetExposure absorbs its own failures and answers with an empty map, so
+  // there is no path from a price read to a missing verdict. A row that is not in
+  // the map serves `exposure: null`, which the page states as "not read this
+  // cycle" — never as zero.
+  //
+  // Nothing below reads it. The score is computed by the rule engine from the
+  // config snapshot alone, and a price is not one of its inputs.
+  const exposures = await readFleetExposure(list);
   const watched = await Promise.all(list.map(async (w) => {
     const snap = getSnapshot(w.address, w.chainId);
     const a = snap ? await assessSnapshot(snap, w.ticker) : null;
@@ -189,6 +201,10 @@ router.get("/status", async (_req: Request, res: Response) => {
       dvnSummary,
       dvnNames,
       dvnCorridors,
+      // Optional and absent-safe: an older stored snapshot, or an instance whose
+      // price read failed, carries null here and the page renders that as
+      // unread. No existing field's meaning or type changes.
+      exposure: exposures.get(exposureKey(w.chainId, w.address)) ?? null,
     };
   }));
 
