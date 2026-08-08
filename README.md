@@ -11,7 +11,7 @@ When the verdict for the one asset it may sign about changes, it writes a hash o
 that verdict to a contract on Flare. No model sits anywhere in the verdict path.
 
 **How much rides on it.** The Flare OFT corridors this watches have carried
-**$1.7 billion in and out across 45,646 messages**, and **$137 million of that in
+**$1.78 billion in and out across 45,646 messages**, and **$137 million of that in
 the last 90 days**. Measured from LayerZero's own Dune tables, query
 [8265924](https://dune.com/queries/8265924), execution `01KZHEMZV74KDS6D2HEC8TSCMR`,
 read 2026-08-08. In and out, not into: the split is in the query and in
@@ -19,7 +19,8 @@ read 2026-08-08. In and out, not into: the split is in the query and in
 
 **Why that number is not the risk.** The loss is not spread across those 45,646
 messages. A verification stack decides whether an inbound message is real, and
-where one has been defeated, a single accepted message has been the entire loss.
+where one has been defeated, a single accepted message can carry the entire loss,
+and has.
 Volume tells you what is at stake. The message count tells you nothing about the
 risk. The configuration does, and it changes about twice a year, which is exactly
 why no human is watching on the day it moves.
@@ -27,7 +28,7 @@ why no human is watching on the day it moves.
 **What this can see, and what it cannot.** It reads configuration. It cannot tell
 you that someone is, at this moment, compromising the infrastructure a verifier
 depends on. What it can tell you is whether your configuration is one where a
-single compromise would be enough on its own. Those are different questions, and
+single defeated verifier would be enough on its own. Those are different questions, and
 only the second is answerable from the chain. This answers the second one, every
 cycle, and shows its work.
 
@@ -570,12 +571,13 @@ part of the system.
   mint-on-arrival OFT has no such ceiling. It creates the token when a message
   arrives, so whoever controls the verification stack mints supply that nothing
   backs, and the contract's zero balance caps nothing at all. USDT0 is that
-  shape. Its custody figure is $0 and it is the row on this page that deserves
-  the most attention, not the least.
+  shape. Its custody figure is $0 and it is the row on this page where the
+  configuration score matters most, not the least.
 
   So the custody figure is one bound, and it only exists for one of the two
-  shapes. **The bound that applies to both is what the path actually moves**, and
-  that is the $1.7 billion above. For USDT0 specifically, $1.75 billion has
+  shapes. **The number that spans both shapes is what the path actually moves**, and
+  that is the $1.78 billion above. It measures what is at stake; it is not a
+  ceiling on what could be taken. For USDT0 specifically, $1.75 billion has
   crossed that corridor and $122 million of it in the last 90 days, against a
   contract that holds nothing.
 
