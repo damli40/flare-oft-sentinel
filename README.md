@@ -120,11 +120,13 @@ Four more are pinned by hand in `WATCH_PINNED`: three live Flare OFTs whose
 all-time volume is real but whose last seven days sit under the threshold, plus
 **our own demo OFT**, which has no traffic history at all. The pins live in
 `backend/.env.flare.example`, so you can read the watchlist as configuration
-instead of digging it out of code. Between them, the six accounted for **all of
-the all-time Flare OFT volume** the watchlist's Dune query (`8185729`) returned
-when it was read on **2026-08-01**. Treat that as a reading of a public dataset
-on a date. An OFT deployed on Flare tomorrow would change it, and picking that up
-without anyone editing a list is what the traffic rule is for.
+instead of digging it out of code. Between them, the six carry all but a
+rounding of the value that has ever crossed Flare's OFT corridors. The all-time
+query ([8265924](https://dune.com/queries/8265924), read 2026-08-08) returns six
+tickers, and the only one outside this list is a legacy symbol under the same
+project as USDT0, worth $2.8M of a $1.78B total. Treat that as a reading of a
+public dataset on a date. An OFT deployed on Flare tomorrow would change it, and
+picking that up without anyone editing a list is what the traffic rule is for.
 
 The same rules read and score all six. Nothing is graded on a curve because an
 asset belongs to someone else, and **some of the live assets read CRITICAL
@@ -267,7 +269,7 @@ than restating it.
 
 | Criterion | Where it is answered |
 |---|---|
-| **Product usefulness** | A cross-chain token's safety lives in a configuration almost nobody reads, and a single accepted message is the whole loss. This reads that configuration every cycle for the whole Flare fleet and shows its work. [The problem](#what-this-is-in-plain-words) |
+| **Product usefulness** | A cross-chain token's safety lives in a configuration almost nobody reads, and a single accepted message can carry the whole loss. This reads that configuration every cycle for the whole Flare fleet and shows its work. [The problem](#what-this-is-in-plain-words) |
 | **Flare integration quality** | Flare's own traffic picks the watchlist, FTSOv2 prices what each contract holds, Flare Mainnet holds the record, and Flare's explorer constraint is handled in the open. [Four ways](#how-this-uses-flare) |
 | **Technical execution** | A live page, a live API, contracts source-verified on Flare, a suite whose measured size is stated under [Run it yourself](#run-it-yourself), and an engine you can rebuild from its public upstream and diff. [Check it yourself](#check-it-yourself-without-taking-our-word-for-any-of-it) |
 | **Evidence of new work** | A provenance table marking every part prior, ported or new, file by file, plus three chain-timestamped deploy transactions. [The table](#what-was-already-built-what-is-new-what-was-ported) |
@@ -564,20 +566,18 @@ part of the system.
   zero.** `DINERO`, `UP` and the demo OFT read "no FTSO feed". A blank or a `$0`
   in that slot would be a lie of a different kind.
 
-
-  **An empty contract is not a safe contract, and the first version of this
-  section implied it was.** A lockbox adapter caps the damage: a forged inbound
-  message can only release what it holds, so FXRP's $13.5M is a real ceiling. A
-  mint-on-arrival OFT has no such ceiling. It creates the token when a message
-  arrives, so whoever controls the verification stack mints supply that nothing
-  backs, and the contract's zero balance caps nothing at all. USDT0 is that
-  shape. Its custody figure is $0 and it is the row on this page where the
-  configuration score matters most, not the least.
+  **An empty contract is not a safe contract.** A lockbox adapter caps the
+  damage: a forged inbound message can only release what it holds, so FXRP's
+  $13.5M is a real ceiling. A mint-on-arrival OFT has no such ceiling. It
+  creates the token when a message arrives, so whoever controls the verification
+  stack mints supply that nothing backs, and the contract's zero balance caps
+  nothing at all. USDT0 is that shape. Its custody figure is $0 and it is the
+  row on this page where the configuration score matters most, not the least.
 
   So the custody figure is one bound, and it only exists for one of the two
-  shapes. **The number that spans both shapes is what the path actually moves**, and
-  that is the $1.78 billion above. It measures what is at stake; it is not a
-  ceiling on what could be taken. For USDT0 specifically, $1.75 billion has
+  shapes. **The number that spans both shapes is what the path actually
+  moves**, and that is the $1.78 billion above. It measures what is at stake; it
+  is not a ceiling on what could be taken. For USDT0 specifically, $1.75 billion has
   crossed that corridor and $122 million of it in the last 90 days, against a
   contract that holds nothing.
 
@@ -594,14 +594,13 @@ part of the system.
 
   **The price never reaches the score.** Flare documents block-latency feeds as
   updating about every 1.8 seconds, so a price-weighted score would give a
-  different answer tomorrow
-  for a configuration nobody touched. That would break the one claim this
-  repository rests on and empty every attestation it writes to Flare. Exposure
-  orders the fleet and never scores it, and
-  `backend/src/__tests__/ftso.test.ts` pins it: the pricing module may not import
-  from the engine, and the same snapshot scored at two different prices must
-  produce byte-identical findings. That guard was itself checked by planting an
-  engine import and confirming the test fails.
+  different answer tomorrow for a configuration nobody touched. That would break
+  the one claim this repository rests on and empty every attestation it writes
+  to Flare. Exposure orders the fleet and never scores it, and
+  `backend/src/__tests__/ftso.test.ts` pins it: the pricing module may not
+  import from the engine, and the same snapshot scored at two different prices
+  must produce byte-identical findings. That guard was itself checked by
+  planting an engine import and confirming the test fails.
 - Flare's explorer is off the free Etherscan tier, so the fast path that reads
   peer-set logs is unavailable and each cold snapshot sweeps every known
   LayerZero V2 EID instead. It works, and it is slower. That is a real constraint
