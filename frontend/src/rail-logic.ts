@@ -569,15 +569,24 @@ export function exposureLine(e: ExposureRead | null | undefined, chain: string |
   return e.mintsOnArrival ? `${value} · mints on arrival` : value;
 }
 
-/** Why a lockbox that holds nothing is holding nothing. Null for every other
- *  row, so it never appears as boilerplate.
+/** Why a lockbox that holds nothing is the row to WORRY about, not the row to
+ *  skip. Null for every other row, so it never appears as boilerplate.
  *
- *  Deliberately does NOT quote the token's total supply. That number exists and
- *  it is not this contract's holding; putting it here is exactly the
- *  substitution this whole section was rewritten to prevent. */
+ *  ⚠️ This note was rewritten on 2026-08-08 because the first version had the
+ *  risk backwards. It read as "nothing here, nothing to price", which invites a
+ *  reader to treat $0 as $0 of exposure. The opposite is true. A lockbox caps
+ *  the loss at what it locks; a mint-on-arrival OFT has no such cap, because a
+ *  forged inbound message MINTS rather than releases. The empty contract is the
+ *  more dangerous shape, and the page has to say so.
+ *
+ *  Still deliberately does NOT quote the token's total supply as the figure.
+ *  Supply is not this contract's holding, and the honest scale for this shape is
+ *  what actually crosses the path, not what exists somewhere. */
 export const MINTS_ON_ARRIVAL_NOTE =
-  "This contract holds nothing. It mints the token when a message arrives instead of " +
-  "releasing it from a vault, so there is no custodied balance to price.";
+  "This contract holds nothing to price, and that is not reassurance. It mints the token " +
+  "when a message arrives instead of releasing it from a vault, so a forged message creates " +
+  "supply that nothing backs. A custody balance would cap what a broken verification stack " +
+  "could take. There is none here to cap it.";
 
 export function mintNote(e: ExposureRead | null | undefined): string | null {
   return e?.mintsOnArrival ? MINTS_ON_ARRIVAL_NOTE : null;

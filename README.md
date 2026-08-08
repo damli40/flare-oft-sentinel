@@ -6,9 +6,35 @@ tokens every cycle and publishes a verdict anyone can recompute.
 ## Start here
 
 **What it does.** Reads the live LayerZero configuration of six OFTs on Flare
-Mainnet, scores each against a fixed rule set, writes a hash of the verdict to a
-contract on Flare, and alerts when a reading changes. No model sits anywhere in
-the verdict path.
+Mainnet, scores each against a fixed rule set, and alerts when a reading changes.
+When the verdict for the one asset it may sign about changes, it writes a hash of
+that verdict to a contract on Flare. No model sits anywhere in the verdict path.
+
+**How much rides on it.** The Flare OFT corridors this watches have carried
+**$1.7 billion in and out across 45,646 messages**, and **$137 million of that in
+the last 90 days**. Measured from LayerZero's own Dune tables, query
+[8265924](https://dune.com/queries/8265924), execution `01KZHEMZV74KDS6D2HEC8TSCMR`,
+read 2026-08-08. In and out, not into: the split is in the query and in
+[How this uses Flare](#how-this-uses-flare).
+
+**Why that number is not the risk.** The loss is not spread across those 45,646
+messages. A verification stack decides whether an inbound message is real, and
+where one has been defeated, a single accepted message has been the entire loss.
+Volume tells you what is at stake. The message count tells you nothing about the
+risk. The configuration does, and it changes about twice a year, which is exactly
+why no human is watching on the day it moves.
+
+**What this can see, and what it cannot.** It reads configuration. It cannot tell
+you that someone is, at this moment, compromising the infrastructure a verifier
+depends on. What it can tell you is whether your configuration is one where a
+single compromise would be enough on its own. Those are different questions, and
+only the second is answerable from the chain. This answers the second one, every
+cycle, and shows its work.
+
+**Where it is running.** The page is at
+<https://flare-oft-sentinel.netlify.app/flare.html> and the API behind it at
+<https://flare-sentinel-api-production.up.railway.app>. Two of the six read
+CRITICAL today, which is the tool working.
 
 **What existed before this program.** OFT Sentinel did. The rule engine, the
 scoring, the chain-read layer, the contracts, the API and the MCP server are
@@ -18,14 +44,16 @@ prior, ported or new, file by file, and the engine's claim is checkable against
 its public upstream with [a recipe you can
 run](#check-it-yourself-without-taking-our-word-for-any-of-it).
 
-**What was built during it.** The Flare instance: both contracts deployed on
-Flare Mainnet, the scope module that decides what gets read and what may ever be
-signed, the Flare watchlist query, the judge page, the FTSOv2 read that prices
+**What was built during it.** The Flare instance: the registry and its alert
+contract deployed on Flare Mainnet, plus the demo OFT beside them, which is the
+three transactions in the table below. The scope module that decides what gets
+read and what may ever be signed, the Flare watchlist query, the judge page, the FTSOv2 read that prices
 what each contract is holding, and one scoring fix published below as a diff.
 
 **How Flare is used.** [The list is here](#how-this-uses-flare). The one worth
-naming at the top is that we do not choose the watchlist. Flare's own message
-traffic does, and that is how FXRP arrived on it.
+naming at the top: two of the six are on the watchlist because Flare's own
+message traffic put them there, not us, and that is how FXRP arrived. We pinned
+the other four so the list covers the whole fleet.
 
 **What this repository is.** A sanitised export of a private monorepo, so its
 history starts at the export rather than at the first line of work. [What that
@@ -38,6 +66,10 @@ nobody reads: which verifiers must sign off on a message, which libraries carry
 it, who can change either. That configuration changes maybe twice a year. Those
 are the changes a human misses, so the check has to be a machine that runs on a
 schedule and shows its work.
+
+An audit photographs the code at one moment. It cannot catch a change made after
+the photo, and the changes that matter here are made after the photo, in public,
+by a transaction anyone could have read.
 
 This repository is a Flare-scoped instance of **OFT Sentinel**. It:
 
@@ -190,6 +222,56 @@ today.
 | Backend API | https://flare-sentinel-api-production.up.railway.app |
 | Status endpoint | `https://flare-sentinel-api-production.up.railway.app/api/sentinel/status` |
 
+## If you have five minutes, do this
+
+The page is live and nothing below needs an account, a key, or an install.
+
+1. **Open <https://flare-oft-sentinel.netlify.app/flare.html>.** Six tiles, one
+   per watched OFT, each with a score and a risk band. **Two of them read
+   CRITICAL.** Those are live third-party tokens and the tool is not softening
+   them.
+2. **Notice what the third-party tiles do not show.** Score, band, finding count
+   and corridor structure, but no finding text and no verifier names. That line
+   is drawn on purpose and [the reason is here](#what-this-instance-watches).
+3. **Open the tile marked as ours, `MOFT`.** This one shows everything: both
+   findings in full, the verifier names, the corridor. We deployed it and left it
+   on the endpoint's defaults so the detection path could be shown on an asset
+   that is ours to break.
+4. **Read its remediation block.** It does not only say what is wrong. It says
+   what the score becomes once you fix it: **75 to 95**. That is the engine
+   scoring the fixed configuration before anyone touches the chain.
+5. **Check a number against the chain instead of against us.** The registry's
+   attestation count is one call, no toolchain:
+
+   ```bash
+   curl -s -X POST https://flare-api.flare.network/ext/C/rpc \
+     -H 'content-type: application/json' \
+     --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x2d2b385eb0375aBD74d5174a4f738B0B142Dd144","data":"0x2ddbd13a"},"latest"]}'
+   ```
+
+   [What that number means, and why it has been small](#contracts-on-flare-mainnet).
+6. **Score a configuration of your own**, with no key and no payment, using
+   [`POST /validate`](#4-the-rule-engine-before-anything-ships). The engine runs
+   as a pure function: no attestation, no alert, nothing stored.
+
+If you have twenty minutes instead, [run the rules on your own
+machine](#run-it-yourself) and [rebuild the engine from its public
+upstream](#check-it-yourself-without-taking-our-word-for-any-of-it) to check that
+the scoring is what we say it is.
+
+## How this scores against the bounty
+
+Bounty 1, Interoperable Asset Products. Each row links to the evidence rather
+than restating it.
+
+| Criterion | Where it is answered |
+|---|---|
+| **Product usefulness** | A cross-chain token's safety lives in a configuration almost nobody reads, and a single accepted message is the whole loss. This reads that configuration every cycle for the whole Flare fleet and shows its work. [The problem](#what-this-is-in-plain-words) |
+| **Flare integration quality** | Flare's own traffic picks the watchlist, FTSOv2 prices what each contract holds, Flare Mainnet holds the record, and Flare's explorer constraint is handled in the open. [Four ways](#how-this-uses-flare) |
+| **Technical execution** | A live page, a live API, contracts source-verified on Flare, a suite whose measured size is stated under [Run it yourself](#run-it-yourself), and an engine you can rebuild from its public upstream and diff. [Check it yourself](#check-it-yourself-without-taking-our-word-for-any-of-it) |
+| **Evidence of new work** | A provenance table marking every part prior, ported or new, file by file, plus three chain-timestamped deploy transactions. [The table](#what-was-already-built-what-is-new-what-was-ported) |
+| **Clarity and future potential** | Automatic remediation is one step away and the engine already produces its inputs; FDC would put the metadata dependency on-chain. Both are named with the reason they are not in this build. [Roadmap](#roadmap) |
+
 ## What was already built, what is new, what was ported
 
 Honest provenance matters more than a bigger-looking diff. OFT Sentinel existed
@@ -225,9 +307,11 @@ with the recipe under
 ### About this repository
 
 This tree is a sanitised export of a private monorepo. A script copies an
-explicit allowlist of paths, runs every check listed below over the result, and
-deletes the whole tree if any of them trips, so a failed export cannot leave
-something publishable behind. The private tree itself cannot be published: it
+explicit allowlist of paths, runs its checks over the result, and deletes the
+whole tree if any of them trips, so a failed export cannot leave something
+publishable behind. Those checks include a secret scan, a vocabulary sweep, the
+engine digest pins published below, and a gate that rebuilds the page and
+verifies that claims this file makes about it actually ship in the bundle. The private tree itself cannot be published: it
 holds deployment credentials, findings about third-party assets that are shared
 in confidence with the parties they concern, and work unrelated to this
 submission.
@@ -423,22 +507,22 @@ curl -s -X POST https://flare-api.flare.network/ext/C/rpc \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x2d2b385eb0375aBD74d5174a4f738B0B142Dd144","data":"0x2ddbd13a"},"latest"]}'
 ```
 
-Expect a small number, and expect it to have been **zero** for most of this
-program. That is the design working rather than the design failing, and it is
-worth being exact about which.
+Expect a small number. It held at **zero** for most of this program, and that is
+the design working rather than the design failing.
 
 The instance signs on a **change** in an asset's verdict, and it may sign about
-exactly one asset, the demo OFT we deployed ourselves. That OFT has held the same
-configuration since the day it went up, so there has been no change to sign. A
-monitor that wrote a transaction every hour to say "still the same" would cost
-gas to produce a log nobody reads, and it would make the registry worse at the
-one job it has: showing you the moments something moved.
+exactly one asset, the demo OFT we deployed ourselves. A configuration that does
+not move produces nothing to sign. A monitor that wrote a transaction every hour
+to say "still the same" would cost gas to produce a log nobody reads, and it
+would make the registry worse at the one job it has: showing you the moments
+something moved.
 
-So the honest statement of what is proven on-chain today is narrower than "it
-attests". The contract is deployed and verified on Flare, the write path is
-built, and the gate in front of it has already refused live third-party tokens at
-the signing step during a real cycle. What the chain does not yet show you is the
-write itself.
+So read the count off the chain rather than off this sentence. What is settled
+either way: the contract is deployed and source-verified on Flare, the write path
+is built, and the gate in front of it refused two live third-party tokens at the
+signing step during a real cycle on 2026-08-05. Whether the registry holds zero
+entries or one when you look, the chain's number is the true one and this page
+does not need to be right about it.
 
 Explorer: <https://flare-explorer.flare.network>, the same one the app links to,
 resolved from the chain registry rather than typed in twice. `AuditRegistry` and
@@ -479,6 +563,28 @@ part of the system.
   zero.** `DINERO`, `UP` and the demo OFT read "no FTSO feed". A blank or a `$0`
   in that slot would be a lie of a different kind.
 
+  ⚠️ **This landed in the repository on 2026-08-08 and reaches the hosted page on
+  the next deploy of the backend and the front end.** If you are reading this
+  before that deploy, `/api/sentinel/status` carries no `exposure` field and the
+  page shows no exposure column. Everything above is in this tree and under test;
+  run it yourself with the recipe below rather than taking the hosted page as the
+  measure of it.
+
+  **An empty contract is not a safe contract, and the first version of this
+  section implied it was.** A lockbox adapter caps the damage: a forged inbound
+  message can only release what it holds, so FXRP's $13.5M is a real ceiling. A
+  mint-on-arrival OFT has no such ceiling. It creates the token when a message
+  arrives, so whoever controls the verification stack mints supply that nothing
+  backs, and the contract's zero balance caps nothing at all. USDT0 is that
+  shape. Its custody figure is $0 and it is the row on this page that deserves
+  the most attention, not the least.
+
+  So the custody figure is one bound, and it only exists for one of the two
+  shapes. **The bound that applies to both is what the path actually moves**, and
+  that is the $1.7 billion above. For USDT0 specifically, $1.75 billion has
+  crossed that corridor and $122 million of it in the last 90 days, against a
+  contract that holds nothing.
+
   **What gets read depends on the shape of the OFT, and getting this wrong was
   the closest this build came to publishing a false number.** The watched
   addresses are mostly not the tokens: they are LayerZero wrappers. Reading the
@@ -490,8 +596,9 @@ part of the system.
   OFT is asked its own supply. Each row on the page says which of those it is,
   because they answer different questions.
 
-  **The price never reaches the score.** Block-latency feeds update about every
-  1.8 seconds, so a price-weighted score would give a different answer tomorrow
+  **The price never reaches the score.** Flare documents block-latency feeds as
+  updating about every 1.8 seconds, so a price-weighted score would give a
+  different answer tomorrow
   for a configuration nobody touched. That would break the one claim this
   repository rests on and empty every attestation it writes to Flare. Exposure
   orders the fleet and never scores it, and
@@ -735,8 +842,9 @@ is a claim, and this instance makes that claim about one asset: its own.
   runs an attestation request through a voting round, stores a Merkle root on
   Flare, and hands back a proof from the Data Availability layer that a consumer
   contract has to verify, which means another contract deployed on Flare. That is
-  a week of work to do right and this program ran for two. Naming it beats
-  shipping a version that calls the protocol without depending on it.
+  a week of work to do right, and this build ran on a two-week timebox inside a
+  program that opened on 2026-06-29. Naming it beats shipping a version that
+  calls the protocol without depending on it.
 - **Songbird and Coston2.** The chain registry pattern is per-chain data, so a
   canary-network instance is configuration rather than code.
 - **FAssets beyond FXRP.** The watchlist rule follows traffic, so a future FAsset
