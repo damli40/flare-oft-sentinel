@@ -61,8 +61,10 @@ const POLL_MS = 60_000;
 const REPO_URL = "https://github.com/damli40/flare-oft-sentinel";
 
 // The OFT we deployed ourselves for the detection demo is identified by
-// isDemoAsset() in rail-logic.ts — chain + address, taken from the instance's own
-// ATTEST_PINNED. It used to be a ticker comparison against a literal here, which
+// isDemoAsset() in rail-logic.ts — chain + address, held byte-identical to the
+// backend's ATTEST_PINNED by a test. See the hazard note above DEMO_PINNED: that
+// tie has to be cut now that this instance signs for every asset it watches.
+// It used to be a ticker comparison against a literal here, which
 // had already failed once in the other direction ("DEMOFT" matched nothing, so
 // the demo card never rendered). See the note above isDemoAsset for why a ticker
 // cannot be the identity now that the answer decides what a third party's tile
@@ -582,7 +584,9 @@ function DemoBody({
           </>
         ) : (
           <div style={{ fontSize: 12.5, color: "var(--faint)" }}>
-            No attestation written yet. The next cycle publishes one.
+            No attestation written yet. One is written the next time this
+            asset's configuration reads differently from the last stored
+            fingerprint, so an unchanged asset stays unsigned on purpose.
           </div>
         )}
       </div>
@@ -799,10 +803,11 @@ export function FlareRailStatus() {
 
   const watched = status?.watched ?? [];
   const chainRefs = status?.chains ?? [];
-  // Ours or somebody else's, decided by the pinned chain+address identity the
-  // instance is allowed to sign about — never by a ticker string, which any
-  // asset can share. It fails closed: before the chain list loads, every asset
-  // reads as a third party's and its findings stay withheld.
+  // Ours or somebody else's, decided by the pinned chain+address identity of the
+  // OFT we deployed — never by a ticker string, which any asset can share. It
+  // fails closed: before the chain list loads, every asset reads as a third
+  // party's and its findings stay withheld. This question is separate from what
+  // the instance signs on chain, which now covers every watched asset.
   const isDemo = (w: WatchedStatus) => isDemoAsset(w, chainRefs);
   // The live rails are ordered by what is at stake on them, biggest first, with
   // the unpriceable ones last in the order the instance served them. The demo

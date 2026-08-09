@@ -250,13 +250,29 @@ export function detailAfterIndex(openIndex: number, cols: number, count: number)
 // it — see publicRead() below for the filter and WITHHELD_LINE for what the page
 // says about the omission.
 //
-// The identity comes from the instance's own pinned-demo-asset config
-// (`ATTEST_PINNED` in backend/.env.flare.example): the asset this instance is
-// permitted to SIGN about is, by construction, the asset we own. It is expressed
-// here in that config's exact `chainKey:address:ticker` form and a test asserts
-// the two strings match, so re-pinning the demo asset in the backend and
-// forgetting the frontend turns the suite red instead of quietly publishing a
-// third party's findings.
+// The identity is a chain+address pin naming the OFT we deployed. It is written
+// in the backend env's exact `chainKey:address:ticker` form, and a test in
+// backend/src/__tests__/rail-logic.test.ts asserts it matches the `MOFT` entry
+// inside `WATCH_PINNED` byte for byte, so re-pinning the demo asset in the
+// backend and forgetting this file turns the suite red instead of leaving the
+// demo card pointed at nothing.
+//
+// It used to be checked against `ATTEST_PINNED` instead. That worked only while
+// one string answered two questions: what this instance may SIGN, and which
+// asset is OURS. On 2026-08-09 signing widened to every watched asset and the
+// two answers came apart, so the check moved to the watch list, where the demo
+// asset's identity actually lives — MOFT is pinned there because it has no Dune
+// traffic of its own, and that pin moves if and only if we redeploy it.
+//
+// For the record, because an earlier draft of this comment said otherwise and
+// it was wrong: widening the signing scope could never have leaked third-party
+// findings onto the page. DEMO_PINNED is a hardcoded literal and is never read
+// from the environment, so no env value can move it. The only real coupling was
+// the test, and the only thing at risk was a red suite.
+//
+// WHAT THE PAGE SHOWS DID NOT CHANGE: score and band for every asset, finding
+// text and operator names for our own and no other. That is a separate decision
+// from what gets signed, and it is still the narrow one.
 //
 // It is NOT a ticker comparison. A ticker is a label anyone can choose — this
 // page already shipped once with `DEMO_TICKER = "DEMOFT"` matching nothing, and
@@ -270,8 +286,10 @@ export interface DemoPin {
   ticker: string;
 }
 
-/** Verbatim `ATTEST_PINNED` from the instance's env — the assets this Sentinel
- *  may sign about, which is exactly the asset it owns. */
+/** The OFT we deployed ourselves, in the backend env's pin format. A hardcoded
+ *  literal, never read from the environment, held byte-identical to the `MOFT`
+ *  entry in `WATCH_PINNED` by a test. See the note above for why it is pinned
+ *  to the watch list rather than to the signing list. */
 export const DEMO_PINNED = "flare:0x560C03079FE54Fa53e15b48C615b1ef76D6DF621:MOFT";
 
 export function parseDemoPins(raw: string): DemoPin[] {

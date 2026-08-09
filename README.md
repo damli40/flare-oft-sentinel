@@ -7,8 +7,8 @@ tokens every cycle and publishes a verdict anyone can recompute.
 
 **What it does.** Reads the live LayerZero configuration of six OFTs on Flare
 Mainnet, scores each against a fixed rule set, and alerts when a reading changes.
-When the verdict for the one asset it may sign about changes, it writes a hash of
-that verdict to a contract on Flare. No model sits anywhere in the verdict path.
+When an asset's verdict changes, it writes a hash of that verdict to a contract
+on Flare. No model sits anywhere in the verdict path.
 
 **How much rides on it.** Flare's OFT corridors have carried **$1.78 billion in
 and out across 45,646 messages**, and **$137 million of that in the last 90
@@ -84,8 +84,8 @@ This repository is a Flare-scoped instance of **OFT Sentinel**. It:
 3. runs a fixed rule set over that reading. No model, no judgement call, and the
    same input always gives the same verdict,
 4. writes a hash of the verdict to an `AuditRegistry` contract **on Flare
-   Mainnet**, so a chain timestamps the result instead of us. This covers the
-   assets the instance may sign about, which is a one-item list by design,
+   Mainnet**, so a chain timestamps the result instead of us. This covers every
+   asset the instance watches,
 5. shows the current state on one page.
 
 No LLM sits anywhere in the verdict path. The rules are `RULES_VERSION`
@@ -157,12 +157,25 @@ to its own tools is worse than one that says too much. So the page holds back an
 the raw API does not. Call the endpoint yourself and you will see third-party
 findings and DVN operator names. Better that you know before you call it.
 
-**Reading an asset and signing about it are two different permissions.** Of the
-six, our own demo OFT is the only one this instance can write to the registry.
-See `ATTEST_SCOPE` and `ATTEST_PINNED` under [Environment](#environment). We
-deployed that OFT and left it on the endpoint's default configuration, so we can
-demonstrate the detection path end to end on an asset that is ours to break. It
-holds no value and nothing depends on it.
+**What an attestation carries, and what it does not.** This instance signs a
+verdict for every asset it watches. The registry entry holds the asset, the
+chain, a hash of the verdict, the score and the risk band. It holds no finding
+text. The hash confirms a verdict you already have; it does not hand you one you
+do not. The page and `/api/sentinel/status` publish the score and the band for
+all six already, so the signature adds a chain timestamp rather than a new
+disclosure, and the line above about what the page prints does not move.
+
+The signing list held one asset for most of this build. Rules 4.1.0 understated
+the score of a multi-corridor configuration, and we would not write a score into
+a registry under a rule set we knew was about to change. Rules 5.0.0 went live on
+2026-08-07 and that reason ended. The gate stayed: `ATTEST_SCOPE` and
+`ATTEST_PINNED` under [Environment](#environment) still decide what an instance
+signs and still fail closed on an empty or unrecognised value, and
+`backend/.env.flare.example` records what this one is set to.
+
+One of the six is ours. We deployed that OFT and left it on the endpoint's
+default configuration, so we can show the detection path end to end on an asset
+that is ours to break. It holds no value and nothing depends on it.
 
 ## Architecture: one cycle, end to end
 
@@ -182,9 +195,22 @@ which is how a demo OFT with no history gets watched at all.
 
 **Stage 2 reads the chain.** `lz-config.ts` builds one snapshot per corridor:
 required and optional DVNs, the send and receive libraries, block confirmations.
-Reads go through a three-provider quorum from `chain-registry.json`, so no single
-RPC decides a verdict. DVN addresses resolve to operator names through LayerZero's
-public metadata, and that resolution is the input whose coverage grows over time.
+Flare is configured in `chain-registry.json` with three endpoints from three
+independent providers: Flare's own `flare-api.flare.network`, Ankr and au.cc.
+
+**Two of them have to agree.** Every send-side ULN — the configuration that
+decides who must verify a message — is read twice, once on the primary and once
+on an endpoint from a **different** provider, and the two results are compared.
+Disagreement on required DVNs, counts or the optional threshold does not get
+averaged away or retried until it agrees; the route is flagged as potentially
+manipulated and surfaced as CRITICAL. The third endpoint is failover, so a flaky
+RPC reads as a transient failure rather than as "unverifiable". Two properties
+worth stating because they are the ones usually faked: the second read must come
+from a different provider, since two endpoints from the same operator cannot
+independently corroborate anything, and when no such endpoint exists the check
+records **not asked** rather than **no conflict**. DVN addresses resolve to
+operator names through LayerZero's public metadata, and that resolution is the
+input whose coverage grows over time.
 
 **Stage 3 scores it.** `drift.ts` runs the fixed checks at `RULES_VERSION`
 `5.0.0`, reading operator custody declarations from `custody.ts`
@@ -193,10 +219,13 @@ distinct check at that check's worst severity.
 
 **Then two gates, and they are the parts worth reading.**
 
-The **attest gate** decides what this instance signs. `ATTEST_SCOPE=allowlist`
-plus `ATTEST_PINNED` narrows on-chain writes to the demo OFT. The other five are
-read and scored on the same rules and never reach a transaction. Unset, empty or
-unrecognised values attest nothing, so a typo cannot widen it.
+The **attest gate** decides what this instance signs. `ATTEST_SCOPE` and
+`ATTEST_PINNED` are the two inputs, and `backend/.env.flare.example` records what
+this instance sets them to. It signs for every asset it watches. The gate is
+still the thing standing in front of the transaction, and it still fails closed:
+under `ATTEST_SCOPE=allowlist` an empty or unparseable `ATTEST_PINNED` signs
+nothing, and any value of `ATTEST_SCOPE` the code does not recognise signs
+nothing either. A typo cannot widen it.
 
 The **render filter** decides what the page says. `/api/sentinel/status` returns
 the whole read, and `isDemoAsset()` splits the page: our own asset shows full
@@ -523,19 +552,20 @@ curl -s -X POST https://flare-api.flare.network/ext/C/rpc \
 Expect a small number. It held at **zero** for most of this program, and that is
 the design working rather than the design failing.
 
-The instance signs on a **change** in an asset's verdict, and it may sign about
-exactly one asset, the demo OFT we deployed ourselves. A configuration that does
-not move produces nothing to sign. A monitor that wrote a transaction every hour
+The instance signs on a **change** in an asset's verdict, across every asset it
+watches. A configuration that does not move produces nothing to sign, and these
+configurations move about twice a year. That is why a low count is the expected
+reading rather than a broken one. A monitor that wrote a transaction every hour
 to say "still the same" would cost gas to produce a log nobody reads, and it
 would make the registry worse at the one job it has: showing you the moments
 something moved.
 
 So read the count off the chain rather than off this sentence. What is settled
 either way: the contract is deployed and source-verified on Flare, the write path
-is built, and the gate in front of it refused two live third-party tokens at the
-signing step during a real cycle on 2026-08-05. Whether the registry holds zero
-entries or one when you look, the chain's number is the true one and this page
-does not need to be right about it.
+is built, and the gate in front of it ran in a real cycle on 2026-08-05 and
+decided the signing question for every asset in the fleet before any transaction
+went out. Whatever the registry holds when you look, the chain's number is the
+true one and this page does not need to be right about it.
 
 Explorer: <https://flare-explorer.flare.network>, the same one the app links to,
 resolved from the chain registry rather than typed in twice. `AuditRegistry` and
@@ -629,7 +659,7 @@ npm install
 npx vitest run
 ```
 
-> Measured when this repository was exported: **709 tests across 35 files**, all passing. If your run differs, that is a finding worth an issue.
+> Measured when this repository was exported: **722 tests across 36 files**, all passing. If your run differs, that is a finding worth an issue.
 
 These tests are the specification. They pin the rule behaviour with fixture
 snapshots and a fake RPC. No keys, no chain access, and no RPC call.
@@ -809,7 +839,7 @@ to this instance:
 | `WATCH_CHAINS` | Comma-separated chain allowlist. Only these chains get a watchlist assembled. Unset = every chain, the previous behaviour. |
 | `WATCH_PINNED` | Assets **read and scored** whatever the chain filter or traffic threshold says. This is how the four hand-pinned OFTs get watched, including the demo one, which has no traffic at all. |
 | `ATTEST_SCOPE` | `allowlist` restricts on-chain attestation to the assets in `ATTEST_PINNED`. Unset = the previous behaviour, attesting everything watched. Any other value attests **nothing**: a mode we do not recognise never reads as "no restriction". |
-| `ATTEST_PINNED` | The assets that may be **signed** into the registry. On this instance it holds the demo OFT and nothing else. Unset, empty or unparseable attests nothing, and it never falls back to `WATCH_PINNED` or to everything. |
+| `ATTEST_PINNED` | The assets that may be **signed** into the registry when `ATTEST_SCOPE=allowlist`. Read as unset, empty or unparseable it attests nothing, and it never falls back to `WATCH_PINNED` or to everything. `backend/.env.flare.example` records the value this instance runs. |
 | `ADMIN_TOKEN` | Bearer token for the operator-only routes (`POST /poll`, the replay routes, the custody declarations API). Unset or empty, every one of them answers **404**, meaning the route does not exist. The scheduled in-process poller does not go through it either way. |
 | `FLARE_SENTINEL_QUERY_ID` | Overrides the saved Dune query (`8185729`). |
 | `FLARE_RPC` | Overrides the Hardhat Flare endpoint. |
@@ -818,13 +848,14 @@ to this instance:
 | `X402_ENABLED` | The agent-payments challenge on `POST /validate`. That route is a listed paid service on a different deployment, and every instance inherits the code, so this one is set to `false` and answers a body-less caller with a description instead of a bill. Unset leaves the listed deployment untouched, and only the exact string `false` disables it. |
 
 **`WATCH_PINNED` and `ATTEST_PINNED` are two lists on purpose. Widening what you
-look at must never widen what you sign.** They were one list until a measurement
-caught the consequence: the attest gate matched any watched pin, so extending the
-watch list to cover the whole Flare fleet had made live third-party tokens
-signable. We found it before sending any transaction, and that is why the gate
-now fails closed in every unset, empty and unrecognised case. Reading somebody's
-contract is a read. Writing a verdict about it into a permanent public registry
-is a claim, and this instance makes that claim about one asset: its own.
+look at must not widen what you sign as a side effect.** They were one list until
+a measurement caught the consequence: the attest gate matched any watched pin, so
+extending the watch list to cover the whole Flare fleet moved the signing list
+with it, and nobody had decided that. We found it before sending any transaction.
+Splitting the lists is what turned the signing scope into a decision an operator
+makes on purpose, and the gate now fails closed in every empty and unrecognised
+case. This instance signs for everything it watches, and that setting is written
+down in `backend/.env.flare.example` rather than assumed from the watch list.
 
 ## Roadmap
 
@@ -842,15 +873,6 @@ is a claim, and this instance makes that claim about one asset: its own.
   for a human or an agent to inspect. **Read tools stay read tools.** The MCP
   server has no write path today, and adding one would be an announced change
   rather than a quiet one.
-- **Full-fleet on-chain attestation.** This instance attests one asset, the demo
-  OFT it deployed itself. Two reasons put it there and one of them is gone. The
-  first was the scoring behaviour above, since you do not sign a verdict
-  into a permanent registry under a rule set you know is about to change, and
-  that is fixed and running. The second is harder and still stands: an
-  attestation about somebody else's token is a permanent, public, signed claim
-  about a third party, and the bar for making one sits above the bar for reading.
-  Widening waits on that bar, not on the code, which already supports it through
-  `ATTEST_PINNED`.
 - **FDC, to put the metadata dependency on-chain.** The honest weak point in the
   determinism claim is stated near the top of this file: the verdict depends on
   LayerZero's published DVN metadata, which lives off-chain and changes, so a

@@ -30,8 +30,9 @@ export function registerVerifyAttestation(server: McpServer, deps: VerifyDeps = 
         "locally and compares it against the hash the backend stored AND the hash held by the AuditRegistry " +
         "contract on Flare Mainnet. The chain read does not rely on the Sentinel backend being honest. " +
         "A MISMATCH result is a finding to act on rather than a failure. Defaults to the asset's latest " +
-        "attestation. This instance signs attestations only for the demo OFT it deployed itself, so an " +
-        "asset with no attestation returns a plain 'no attested verdict' answer.",
+        "attestation. This instance signs an attestation for every asset it watches, so an asset with no " +
+        "attestation has not completed a cycle yet rather than being out of scope, and returns a plain " +
+        "'no attested verdict' answer.",
       inputSchema: {
         address: ADDRESS.describe("OFT contract address (0x…, 40 hex chars)"),
         chain: z.union([z.string(), z.number()]).optional()

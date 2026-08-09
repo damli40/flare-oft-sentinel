@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { getWatched, getWatchlistHealth, pollOnce, runKelpReplay, runLibraryRevertReplay, runRpcConflictReplay, resetDemo } from "../services/sentinel.js";
-import { getVerdicts, getSnapshot, latestVerdict, getScoreHistory, getFeedEvents } from "../services/snapshot-store.js";
+import { getVerdicts, getSnapshot, latestVerdict, getScoreHistory, getFeedEvents, clearWeakAlerts } from "../services/snapshot-store.js";
 import { assessSnapshot, RULES_VERSION } from "../services/drift.js";
 import { generateReport } from "../services/report.js";
 import { askCopilot } from "../services/ask.js";
@@ -797,6 +797,23 @@ router.post("/ask", async (req: Request, res: Response) => {
 router.post("/reset-demo", requireAdmin, (_req: Request, res: Response) => {
   resetDemo();
   res.json({ ok: true });
+});
+
+// POST /api/sentinel/reset-weak-alerts — forget every weak-config alert record.
+//
+// Operator-only, and it has real consequences: the next cycle treats each asset
+// as first-sight, so it re-alerts AND re-attests, which costs a mainnet
+// transaction per asset. It exists because suppression and attestation shared a
+// gate. A cycle blocked from signing still wrote the fingerprint on its way out,
+// so widening the signing scope on 2026-08-09 left the newly-covered assets
+// already marked "seen" and they would never have been signed at all. Opening a
+// gate does not unwrite what was recorded while it was shut.
+//
+// Not something to call on a schedule. Call it when the signing scope changes.
+router.post("/reset-weak-alerts", requireAdmin, (_req: Request, res: Response) => {
+  const cleared = clearWeakAlerts();
+  console.log(`[sentinel] weak-alert records cleared: ${cleared} — next cycle re-alerts and re-attests`);
+  res.json({ ok: true, cleared });
 });
 
 // GET /api/sentinel/history — score history for every watched OFT in one call

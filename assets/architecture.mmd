@@ -29,12 +29,12 @@ flowchart TB
         drift --> score
     end
 
-    gate{{"ATTEST_SCOPE = allowlist<br/>+ ATTEST_PINNED<br/>fails closed on unset,<br/>empty or unrecognised"}}
+    gate{{"ATTEST_SCOPE unset<br/>= sign every watched asset<br/>set to allowlist, or to<br/>anything unrecognised,<br/>and it fails closed"}}
     reg[("AuditRegistry<br/>Flare Mainnet · chainId 14<br/>0x2d2b385e…2Dd144")]
-    nosign["no transaction<br/>watched and scored,<br/>never signed"]
+    nosign["no transaction<br/>an ATTEST_SCOPE we cannot<br/>interpret signs nothing,<br/>and never guesses"]
     api["GET /api/sentinel/status<br/>the whole read,<br/>nothing filtered out"]
 
-    filt{{"isDemoAsset()<br/>chain + address from<br/>the instance's own pin<br/>fails closed"}}
+    filt{{"isDemoAsset()<br/>chain + address of the OFT<br/>we deployed, pinned in<br/>WATCH_PINNED. Not what<br/>gets signed. Fails closed."}}
     ours["MOFT, ours<br/>full findings, DVN names,<br/>attestation link"]
     theirs["any third-party OFT<br/>same score, same band,<br/>finding count, corridor<br/>structure. No finding text,<br/>no operator names."]
 
@@ -60,8 +60,8 @@ flowchart TB
     score --> api
     score --> tis
     tis -.->|"the last step"| fix
-    gate -->|"the demo OFT we deployed"| reg
-    gate -.->|"the other five"| nosign
+    gate -->|"all six, first sight and on change"| reg
+    gate -.->|"a scope we cannot read"| nosign
     api --> filt
     filt -->|ours| ours
     filt -->|theirs| theirs

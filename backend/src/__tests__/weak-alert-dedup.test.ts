@@ -95,6 +95,62 @@ describe("produceWeakConfigAttestation dedup", () => {
     expect(attest).toHaveBeenCalledTimes(1);
   });
 
+  // ── The re-ping cadence, and the separation it depends on ────────────────
+  //
+  // Added 2026-08-09. The cadence shipped claiming "a repeat alerts but does
+  // not attest", and nothing asserted it. Worse, the first version of the claim
+  // was wrong in a way no test would have caught: the ALERT path itself writes
+  // on-chain (a payable AlertBus transaction plus a dust transfer to the OFT
+  // owner), so a repeat was still costing gas and still nudging a third party's
+  // wallet every interval. These three tests pin all of it.
+
+  it("re-pings an unchanged CRITICAL after the interval, WITHOUT attesting again", async () => {
+    vi.stubEnv("REPING_CRITICAL_MINUTES", "1");
+    const o = await loadOrchestrator();
+    await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 25, "CRITICAL", []);
+    expect(attest).toHaveBeenCalledTimes(1);
+    expect(dispatchAlert).toHaveBeenCalledTimes(1);
+
+    // Two minutes later, findings identical.
+    vi.setSystemTime(new Date(Date.now() + 2 * 60_000));
+    await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 25, "CRITICAL", []);
+
+    expect(dispatchAlert).toHaveBeenCalledTimes(2); // said again
+    expect(attest).toHaveBeenCalledTimes(1);        // recorded once
+    vi.useRealTimers();
+  });
+
+  it("tells the alert path a repeat is a repeat, so it skips the on-chain leg", async () => {
+    vi.stubEnv("REPING_CRITICAL_MINUTES", "1");
+    const o = await loadOrchestrator();
+    await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 25, "CRITICAL", []);
+    vi.setSystemTime(new Date(Date.now() + 2 * 60_000));
+    await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 25, "CRITICAL", []);
+
+    // First call is a genuine finding: the chain should hear it.
+    expect(dispatchAlert.mock.calls[0][2]).toMatchObject({ isRepeat: false });
+    // Second is a reminder: Telegram only. This flag is the only thing standing
+    // between a 12-hour cadence and a permanent gas bill on the shared prod
+    // instance, where ALERT_BUS_ADDRESS is set.
+    expect(dispatchAlert.mock.calls[1][2]).toMatchObject({ isRepeat: true });
+    vi.useRealTimers();
+  });
+
+  it("holds an AT_RISK finding past the CRITICAL interval", async () => {
+    // Same unchanged findings, lower band, so the weekly cadence applies and the
+    // twice-daily one must not.
+    vi.stubEnv("REPING_CRITICAL_MINUTES", "1");
+    vi.stubEnv("REPING_AT_RISK_MINUTES", "10000");
+    const o = await loadOrchestrator();
+    await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 60, "AT_RISK", []);
+    expect(dispatchAlert).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(new Date(Date.now() + 2 * 60_000));
+    await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 60, "AT_RISK", []);
+    expect(dispatchAlert).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
   it("re-fires when the finding set materially changes", async () => {
     const o = await loadOrchestrator();
     await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 25, "CRITICAL", []);

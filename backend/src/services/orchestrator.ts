@@ -2,7 +2,7 @@ import type { OftSnapshot, WatchedOft, SentinelVerdict, Finding, RiskLevel, Tran
 import { detectDrift, assessSnapshot, RULES_VERSION } from "./drift.js";
 import { verdictHash, attest, attestInScope } from "./attestor.js";
 import { dispatchAlert } from "./alerts.js";
-import { getSnapshot, putSnapshot, recordVerdict, getWeakAlertFingerprint, getWeakAlertCorridors, putWeakAlertFingerprint } from "./snapshot-store.js";
+import { getSnapshot, putSnapshot, recordVerdict, getWeakAlertFingerprint, getWeakAlertFiredAt, getWeakAlertCorridors, putWeakAlertFingerprint } from "./snapshot-store.js";
 import { loadDvnMeta, dvnMetaHash } from "./lz-config.js";
 
 /** Async because the PDR now pins the DVN table that decided the findings. loadDvnMeta()
@@ -107,6 +107,26 @@ export function weakCorridorsFingerprint(corridors: WeakAlertCorridors): string 
   return verdictHash({ kind: "weak-config-v2", corridors: canonical, rulesVersion: RULES_VERSION });
 }
 
+// How long an UNCHANGED finding stays quiet before it is worth saying again.
+// A risk level absent from this map never re-pings, which is why PASS is not
+// here: there is nothing to be reminded of.
+//
+// Env-overridable in minutes so an operator can tune the cadence without a
+// deploy, and so tests do not have to wait twelve hours.
+const REPEAT_AFTER_MS: Record<string, number> = {
+  CRITICAL: Number(process.env.REPING_CRITICAL_MINUTES ?? 12 * 60) * 60_000,
+  AT_RISK: Number(process.env.REPING_AT_RISK_MINUTES ?? 7 * 24 * 60) * 60_000,
+};
+
+/** Is an unchanged finding at this risk level due to be said again? */
+export function dueForRepeat(riskLevel: string, firedAt: number | null, now = Date.now()): boolean {
+  const every = REPEAT_AFTER_MS[riskLevel];
+  // No cadence for this level, or no record of ever having fired, means the
+  // repeat path is not the one that should handle it.
+  if (!every || every <= 0 || firedAt == null) return false;
+  return now - firedAt >= every;
+}
+
 /**
  * Full alert pipeline for a persistently CRITICAL config that hasn't drifted:
  * attests to AuditRegistry, fires AlertBus (with OFT address + tx links in Telegram),
@@ -123,7 +143,21 @@ export async function produceWeakConfigAttestation(
 ): Promise<void> {
   const merged = mergeWeakFindings(findings, snapshot, getWeakAlertCorridors(watched.address, watched.chainId));
   const fingerprint = weakCorridorsFingerprint(merged);
-  if (getWeakAlertFingerprint(watched.address, watched.chainId) === fingerprint) return;
+
+  // Three outcomes, not two. The fingerprint answers "did the findings change";
+  // it never answered "how long has someone been ignoring this".
+  //
+  //   changed          → alert AND attest. A new verdict deserves a new record.
+  //   unchanged, due   → alert only. A re-ping is a reminder that nobody acted,
+  //                      not a new finding, and re-signing an identical verdict
+  //                      every cycle would fill the registry with duplicates
+  //                      that say nothing and cost gas to say it.
+  //   unchanged, quiet → return, as before.
+  const stored = getWeakAlertFingerprint(watched.address, watched.chainId);
+  const unchanged = stored === fingerprint;
+  const firedAt = getWeakAlertFiredAt(watched.address, watched.chainId);
+  const isRepeat = unchanged && dueForRepeat(riskLevel, firedAt);
+  if (unchanged && !isRepeat) return;
 
   const reasons = findings.filter(f => f.severity !== "PASS").map(f => f.detail);
   const pdr = await buildPdr(snapshot.oft, watched.chainId, findings, score, riskLevel, Date.now());
@@ -144,7 +178,9 @@ export async function produceWeakConfigAttestation(
     pdr,
   };
 
-  if (!attestInScope(snapshot.oft, watched.chainId)) {
+  if (isRepeat) {
+    console.log(`[sentinel] weak-config re-ping ${watched.ticker} ${riskLevel} — findings unchanged, alert only, no attestation`);
+  } else if (!attestInScope(snapshot.oft, watched.chainId)) {
     console.log(`[sentinel] ATTEST_SCOPE=${process.env.ATTEST_SCOPE} — not in ATTEST_PINNED, attestation skipped for ${watched.ticker} (${snapshot.oft})`);
   } else {
     try {
@@ -158,7 +194,7 @@ export async function produceWeakConfigAttestation(
   }
 
   try {
-    verdict.alertTxHash = await dispatchAlert(verdict, snapshot.owner ?? null);
+    verdict.alertTxHash = await dispatchAlert(verdict, snapshot.owner ?? null, { isRepeat });
   } catch (e: any) {
     console.error(`[sentinel] weak-config alert failed for ${watched.ticker}:`, e.shortMessage ?? e.message);
   }

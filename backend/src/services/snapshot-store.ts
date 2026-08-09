@@ -99,6 +99,31 @@ export function getWeakAlertCorridors(oft: string, chainId: number): Record<stri
   return load().weakAlerts?.[key(oft, chainId)]?.corridors ?? null;
 }
 
+/** When the last weak-config alert for this asset actually went out. Drives the
+ *  re-ping cadence: the fingerprint says WHETHER the findings changed, this says
+ *  HOW LONG a caller has been sitting on an unchanged one. null means never. */
+export function getWeakAlertFiredAt(oft: string, chainId: number): number | null {
+  return load().weakAlerts?.[key(oft, chainId)]?.firedAt ?? null;
+}
+
+/** Forget every weak-config alert record, so the next cycle treats each asset as
+ *  first-sight: it re-alerts and, crucially, re-attests.
+ *
+ *  This exists because suppression and attestation shared one gate. A cycle that
+ *  was blocked from signing still wrote the fingerprint on its way out, so when
+ *  the signing scope widened on 2026-08-09 the assets it now covered were
+ *  already marked "seen" and would never have been signed at all. Opening the
+ *  scope does not retroactively unwrite that. This does.
+ *
+ *  Returns how many records were dropped. */
+export function clearWeakAlerts(): number {
+  const state = load();
+  const n = Object.keys(state.weakAlerts ?? {}).length;
+  state.weakAlerts = {};
+  save(state);
+  return n;
+}
+
 export function putWeakAlertFingerprint(
   oft: string,
   chainId: number,

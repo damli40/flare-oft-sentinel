@@ -490,20 +490,45 @@ describe("isDemoAsset", () => {
   });
 });
 
-describe("DEMO_PINNED matches the backend's ATTEST_PINNED", () => {
-  // The safety net the comment above DEMO_PINNED promises, which did not exist
-  // until fix round 1. DEMO_PINNED is a hand-copied duplicate of a backend env
-  // value — there is no shared module between the two trees — and the reason a
-  // reader is asked to trust that duplication is precisely this test. Re-pin the
-  // demo asset in the backend, forget the frontend, and the suite goes red
-  // instead of the page quietly publishing a third party's findings.
-  it("is byte-identical to ATTEST_PINNED in backend/.env.flare.example", () => {
+describe("DEMO_PINNED matches the demo OFT in the backend's WATCH_PINNED", () => {
+  // The safety net the comment above DEMO_PINNED promises. DEMO_PINNED is a
+  // hand-copied duplicate of a backend env value — there is no shared module
+  // between the two trees — and the reason a reader is asked to trust that
+  // duplication is precisely this test. Re-pin the demo asset in the backend,
+  // forget the frontend, and the suite goes red instead of the demo card
+  // quietly pointing at nothing.
+  //
+  // This used to compare against ATTEST_PINNED, which was correct only while
+  // "the asset we deployed" and "the only asset we sign about" had the same
+  // answer. On 2026-08-09 the signing scope widened to every watched asset and
+  // ATTEST_PINNED went away, which turned this test red on a configuration
+  // change it was never meant to guard. The demo asset's identity belongs to
+  // the WATCH list: MOFT is pinned there because it has no Dune traffic of its
+  // own, and that pin moves if and only if we redeploy the demo OFT. That is
+  // the coupling worth asserting.
+  it("is byte-identical to the MOFT entry in WATCH_PINNED", () => {
     const env = readFileSync(ENV_TEMPLATE, "utf8");
-    const line = env.split("\n").find((l) => l.startsWith("ATTEST_PINNED="));
-    expect(line, "ATTEST_PINNED is not set in backend/.env.flare.example").toBeDefined();
-    const attestPinned = line!.slice("ATTEST_PINNED=".length).trim();
-    expect(attestPinned, "ATTEST_PINNED is empty — it attests nothing, and pins nothing").not.toBe("");
-    expect(DEMO_PINNED).toBe(attestPinned);
+    const line = env.split("\n").find((l) => l.startsWith("WATCH_PINNED="));
+    expect(line, "WATCH_PINNED is not set in backend/.env.flare.example").toBeDefined();
+    const entries = line!
+      .slice("WATCH_PINNED=".length)
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    const moft = entries.filter((e) => e.split(":")[2]?.toUpperCase() === "MOFT");
+    expect(moft, "exactly one MOFT entry must be pinned in WATCH_PINNED").toHaveLength(1);
+    expect(DEMO_PINNED).toBe(moft[0]);
+  });
+
+  // The whole point of the 2026-08-09 change: what we SIGN is no longer what we
+  // call ours. Nothing may reintroduce that tie by reading the attest list back
+  // into the page's identity.
+  it("does not depend on the attest scope", () => {
+    const env = readFileSync(ENV_TEMPLATE, "utf8");
+    expect(
+      env.split("\n").some((l) => l.startsWith("ATTEST_SCOPE=") || l.startsWith("ATTEST_PINNED=")),
+      "this instance attests every watched asset; setting either variable narrows that silently",
+    ).toBe(false);
   });
 });
 

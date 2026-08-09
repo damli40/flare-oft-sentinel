@@ -91,13 +91,13 @@ back as a normal result, because it is a finding about the backend, which is the
 point of running the check at all.
 
 **What a judge will find today: the registry holds zero attestations.** This
-instance signs verdicts for one asset, the demo OFT it deployed itself, and the
-configuration change that produces its first CRITICAL verdict has not happened
-yet. `total()` on the registry returns 0, and no watched asset carries an
-attestation id. So `verify_attestation` answers `no attested verdict exists for
-<ticker>` for every asset in the fleet right now. The tool runs; there is
-nothing yet for it to confirm. The other five tools read live data and are
-unaffected.
+instance signs a verdict for every asset it watches, and it signs on a change. No
+watched asset has changed since the instance captured its baselines, so there is
+nothing to write. `total()` on the registry returns 0, and no watched asset
+carries an attestation id, so `verify_attestation` answers `no attested verdict
+exists for <ticker>` for every asset in the fleet right now. The tool runs; there
+is nothing yet for it to confirm. Read `total()` off the chain rather than off
+this paragraph. The other five tools read live data and are unaffected.
 
 `validate_config` is a pure call. The rule engine scores the configuration you
 hand it, stores nothing, and touches no chain. The same request gives the same

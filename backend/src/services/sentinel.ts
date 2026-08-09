@@ -251,7 +251,11 @@ export async function pollOnce(): Promise<void> {
         // both paths in the same tick would land two on-chain attestations for the
         // same config change.
         const driftVerdict = await runCheck(w, snap);
-        if (!driftVerdict && riskLevel === "CRITICAL") {
+        // CRITICAL and AT_RISK both come through here. AT_RISK used to be
+        // excluded, which silently made its re-ping cadence dead code: the
+        // interval existed, nothing ever reached the function that reads it.
+        // PASS stays out — there is nothing to be reminded of.
+        if (!driftVerdict && (riskLevel === "CRITICAL" || riskLevel === "AT_RISK")) {
           await produceWeakConfigAttestation(w, snap, findings, score, riskLevel, tis);
         }
       } catch (e: any) {

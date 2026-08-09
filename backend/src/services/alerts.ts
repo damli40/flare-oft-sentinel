@@ -223,7 +223,8 @@ function postX(text: string): void {
  */
 export async function dispatchAlert(
   v: SentinelVerdict,
-  ownerRecipient: string | null
+  ownerRecipient: string | null,
+  opts: { isRepeat?: boolean } = {},
 ): Promise<string | undefined> {
   if (v.riskLevel === "PASS") return undefined;
 
@@ -231,10 +232,21 @@ export async function dispatchAlert(
   const verdictURI = v.attestationId !== undefined ? `attestation:${v.attestationId}` : "";
 
   let alertTxHash: string | undefined;
-  try {
-    alertTxHash = await fireOnChainAlert(v.oft, v.chainId, recipient, v.score, v.riskLevel, verdictURI);
-  } catch (e: any) {
-    console.error("[alert] on-chain AlertBus failed:", e.shortMessage ?? e.message);
+  // A REPEAT is a reminder that nobody acted, not a new finding, and the
+  // on-chain leg is not free: fireOnChainAlert sends a payable AlertBus
+  // transaction AND a dust transfer to the OFT owner's wallet. Firing that on a
+  // cadence would bill us gas every interval, forever, to tell the chain
+  // something it already recorded — and would repeatedly dust a third party's
+  // wallet with a warning they have already received. Telegram still goes out;
+  // that is the whole point of a re-ping. The chain hears it once.
+  if (opts.isRepeat) {
+    console.log(`[alert] repeat for ${v.ticker} — Telegram only, AlertBus and owner nudge skipped`);
+  } else {
+    try {
+      alertTxHash = await fireOnChainAlert(v.oft, v.chainId, recipient, v.score, v.riskLevel, verdictURI);
+    } catch (e: any) {
+      console.error("[alert] on-chain AlertBus failed:", e.shortMessage ?? e.message);
+    }
   }
 
   // Same rule as the attestation line: an absent hash means it was not sent —
