@@ -39,7 +39,7 @@ flowchart TB
     alert{{"THE ALERT GATE<br/>dispatchAlert() returns on PASS.<br/>A clean asset is signed and never spoken about."}}
     first["FIRST TIME: Telegram, plus an AlertBus<br/>transaction and a dust nudge to the OFT owner"]
     again["THE REMINDER: Telegram only<br/>CRITICAL every 12h · AT_RISK every 7d · PASS never<br/>No second attestation. No AlertBus. No second nudge.<br/>Nobody fixed it, so the chain has nothing new to record."]
-    quiet["On THIS instance both legs are dark:<br/>TELEGRAM_BOT_TOKEN and ALERT_BUS_ADDRESS<br/>are unset, which is what turns alerts off.<br/>sendTelegram logs the composed message instead."]
+    quiet["On THIS instance: Telegram is LIVE and the cadence is firing.<br/>ALERT_BUS_ADDRESS stays unset, so the on-chain leg never runs<br/>and every message reads 'AlertBus: not sent'. Two of the six are<br/>live third-party tokens, and dusting their owners to announce a<br/>finding is not this deployment's call to make.<br/>Signer 0xf374113b…0e66 has 9 outbound transactions on Flare, all<br/>9 to the registry. Verifiable, and the reason the box says this."]
 
     %% ── Leg C: publish it ─────────────────────────────────────────────────
     api["GET /api/sentinel/status<br/>the whole read,<br/>nothing filtered out"]

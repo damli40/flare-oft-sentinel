@@ -245,9 +245,17 @@ hours, an AT_RISK every 7 days, both tunable in minutes through
 and is priced like one. The first fire also sends an AlertBus transaction and a
 dust nudge to the OFT owner; a repeat sends neither, and writes no second
 attestation, because nobody fixed anything and the chain has nothing new to
-record. On this instance both on-chain legs are dark: `TELEGRAM_BOT_TOKEN` and
-`ALERT_BUS_ADDRESS` are unset, and `sendTelegram` logs the composed message
-instead of sending it.
+record.
+
+**On this instance the Telegram leg is live and the cadence is firing.**
+`ALERT_BUS_ADDRESS` stays unset, so the on-chain leg never runs and every message
+reads `AlertBus: not sent`. That is a decision rather than a gap. Setting it turns
+on two writes per first-fire, an AlertBus transaction and a dust transfer to the
+OFT owner's wallet, and five of the six assets here belong to other people.
+Sending a stranger an unsolicited transfer to announce a finding about their token
+is not a call this deployment makes on its own. You can check the claim without
+trusting it: the signer `0xf374113bE1bC5315c917092729d3F09F771B0e66` has nine
+outbound transactions on Flare and all nine go to the registry.
 
 The **render filter** decides what the page says. `/api/sentinel/status` returns
 the whole read, and `isDemoAsset()` splits the page: our own asset shows full
