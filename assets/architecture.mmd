@@ -13,7 +13,7 @@ flowchart TB
 
     subgraph read["2 · Read the live configuration"]
         direction LR
-        rpc["Flare Mainnet<br/>3 RPCs, 3 providers, quorum<br/>chain-registry.json"]
+        rpc["Flare Mainnet · chain-registry.json<br/>3 endpoints, 3 separate companies<br/>every send-side config read TWICE, on two of them<br/>they disagree → CRITICAL, never a retry until they agree<br/>the third is failover, not a vote"]
         meta["LayerZero DVN metadata<br/>public API<br/>chain coverage grows over time"]
         lz["lz-config.ts<br/>one snapshot per corridor:<br/>DVNs, libraries, confirmations"]
         rpc --> lz
@@ -29,24 +29,35 @@ flowchart TB
         drift --> score
     end
 
-    gate{{"ATTEST_SCOPE unset<br/>= sign every watched asset<br/>set to allowlist, or to<br/>anything unrecognised,<br/>and it fails closed"}}
-    reg[("AuditRegistry<br/>Flare Mainnet · chainId 14<br/>0x2d2b385e…2Dd144")]
-    nosign["no transaction<br/>an ATTEST_SCOPE we cannot<br/>interpret signs nothing,<br/>and never guesses"]
-    api["GET /api/sentinel/status<br/>the whole read,<br/>nothing filtered out"]
+    %% ── Leg A: sign it ────────────────────────────────────────────────────
+    gate{{"THE ATTEST GATE<br/>Unset, as it ships here and in production:<br/>sign every watched asset, every band.<br/>Set ATTEST_SCOPE to an allowlist and only<br/>ATTEST_PINNED signs. Set it to anything we<br/>cannot parse and it signs NOTHING."}}
+    reg[("AuditRegistry<br/>Flare Mainnet · chainId 14<br/>0x2d2b385e…2Dd144<br/>asset, chain, verdict hash,<br/>score, band. No finding text.")]
+    resign["total() runs ahead of the asset count, on purpose.<br/>&nbsp;<br/>The re-sign fingerprint covers the findings a cycle could READ.<br/>A corridor unreadable last cycle and readable now moves it,<br/>and the asset signs again. So it is one record per change in<br/>the reading, and not one per asset.<br/>countOf / historyOf walk the trail."]
+    nosign["no transaction<br/>a scope we cannot interpret<br/>signs nothing, and never guesses"]
 
+    %% ── Leg B: keep saying it ─────────────────────────────────────────────
+    alert{{"THE ALERT GATE<br/>dispatchAlert() returns on PASS.<br/>A clean asset is signed and never spoken about."}}
+    first["FIRST TIME: Telegram, plus an AlertBus<br/>transaction and a dust nudge to the OFT owner"]
+    again["THE REMINDER: Telegram only<br/>CRITICAL every 12h · AT_RISK every 7d · PASS never<br/>No second attestation. No AlertBus. No second nudge.<br/>Nobody fixed it, so the chain has nothing new to record."]
+    quiet["On THIS instance both legs are dark:<br/>TELEGRAM_BOT_TOKEN and ALERT_BUS_ADDRESS<br/>are unset, which is what turns alerts off.<br/>sendTelegram logs the composed message instead."]
+
+    %% ── Leg C: publish it ─────────────────────────────────────────────────
+    api["GET /api/sentinel/status<br/>the whole read,<br/>nothing filtered out"]
     filt{{"isDemoAsset()<br/>chain + address of the OFT<br/>we deployed, pinned in<br/>WATCH_PINNED. Not what<br/>gets signed. Fails closed."}}
     ours["MOFT, ours<br/>full findings, DVN names,<br/>attestation link"]
     theirs["any third-party OFT<br/>same score, same band,<br/>finding count, corridor<br/>structure. No finding text,<br/>no operator names."]
 
+    %% ── Leg D: what a fix would score ─────────────────────────────────────
+    tis["tis[] · one entry per fixable finding<br/>intent, the state read, the state wanted,<br/>and the score that fix would produce"]
+    fix["ROADMAP, NOT BUILT<br/>emit the setConfig call itself,<br/>so an operator reviews a transaction<br/>instead of a description of one.<br/>Read tools stay read tools."]
+
+    %% ── Before you deploy at all ──────────────────────────────────────────
     agent["an agent, before it deploys<br/>mcp/ in this repo · 6 read and validate tools<br/>no write path, no private key"]
     val["POST /api/sentinel/validate<br/>pure: no attestation, no alert,<br/>no stored state<br/>free, no key, X402_ENABLED=false"]
     agent --> val
     val -.-> rules
 
     ftso["FTSOv2 · the oracle enshrined in Flare's consensus<br/>0x7BDE3Df0…c1d20 · free eth_call, no fee<br/>prices what each contract custodies:<br/>lockbox balance, native balance, or supply<br/>ranks the fleet, never scores it"]
-
-    tis["tis[] · one entry per fixable finding<br/>intent, the state read, the state wanted,<br/>and the score that fix would produce"]
-    fix["ROADMAP, NOT BUILT<br/>emit the setConfig call itself,<br/>so an operator reviews a transaction<br/>instead of a description of one.<br/>Read tools stay read tools."]
 
     scope --> read
     lz --> rules
@@ -56,35 +67,52 @@ flowchart TB
     %% whose whole claim is that the price reaches neither scoring nor signing,
     %% an arrow that appears to touch either is worse than a missing one.
     ftso -->|"holdings, priced"| api
+
     score --> gate
+    score --> alert
     score --> api
     score --> tis
-    tis -.->|"the last step"| fix
-    gate -->|"all six, first sight and on change"| reg
+
+    gate -->|"first sight, and whenever the reading changes"| reg
     gate -.->|"a scope we cannot read"| nosign
+    reg -.- resign
+
+    %% Declared first-fire first so it lands LEFT of the reminder. Mermaid lays
+    %% siblings out in edge-declaration order, and a reader who meets the repeat
+    %% before the thing being repeated has to read the pair twice.
+    alert -->|"new, or the config drifted"| first
+    alert -->|"CRITICAL or AT_RISK, unchanged and overdue"| again
+    first -.- quiet
+    again -.- quiet
+
     api --> filt
     filt -->|ours| ours
     filt -->|theirs| theirs
+
+    tis -.->|"the last step"| fix
 
     classDef stage fill:#ffffff,stroke:#c2c2d2,color:#1b1b28
     classDef gateStyle fill:#fff1d9,stroke:#d08b12,color:#3a2a06,font-weight:bold
     classDef chain fill:#e3eeff,stroke:#3f74c8,color:#0d233f
     classDef quiet fill:#f0f0f0,stroke:#b4b4b4,color:#3d3d3d
-    class dune,pinned,scope,rpc,meta,lz,cust,drift,score,api,ours,theirs stage
+    class dune,pinned,scope,rpc,meta,lz,cust,drift,score,api,ours,theirs,first,again stage
     classDef preflight fill:#eef7ee,stroke:#5a9c5a,color:#143014
     class agent,val preflight
     class tis stage
     %% Dashed and grey so nothing here can be mistaken for something that runs.
     classDef roadmap fill:#fafafa,stroke:#9a9aa8,color:#55555f,stroke-dasharray: 6 4
     class fix roadmap
-    class gate,filt gateStyle
+    %% Footnotes, not steps. Same grey as the fail-closed box so the eye reads
+    %% all three as "read this if you are checking us", never as pipeline stages.
+    class nosign,resign,quiet quiet
+    %% THREE gates now carry colour, and they are the three decisions a judge
+    %% should attack: what gets signed, what gets said out loud, and whose
+    %% finding text gets shown.
+    class gate,filt,alert gateStyle
     %% Blue with the registry, because both are reads of Flare's own contracts.
     %% It deliberately has NO edge into score.ts: the absence is the claim.
     class reg,ftso chain
-    class nosign quiet
 
-    %% The three numbered stages read as one surface; the two GATES are the
-    %% claims worth looking at, so only they carry colour.
     style pick fill:#f6f6fa,stroke:#dcdce6,color:#3a3a4a
     style read fill:#f6f6fa,stroke:#dcdce6,color:#3a3a4a
     style rules fill:#f6f6fa,stroke:#dcdce6,color:#3a3a4a

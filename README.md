@@ -179,7 +179,7 @@ that is ours to break. It holds no value and nothing depends on it.
 
 ## Architecture: one cycle, end to end
 
-![How one cycle runs: selection, chain read, scoring, and the two gates that decide what gets signed and what gets shown](assets/architecture.png)
+![How one cycle runs: selection, chain read, scoring, and the three gates that decide what gets signed, what gets said out loud, and whose finding text gets shown](assets/architecture.png)
 
 Source for the diagram is [`assets/architecture.mmd`](assets/architecture.mmd),
 so you can regenerate it rather than trust the image:
@@ -198,9 +198,10 @@ required and optional DVNs, the send and receive libraries, block confirmations.
 Flare is configured in `chain-registry.json` with three endpoints from three
 independent providers: Flare's own `flare-api.flare.network`, Ankr and au.cc.
 
-**Two of them have to agree.** Every send-side ULN — the configuration that
-decides who must verify a message — is read twice, once on the primary and once
-on an endpoint from a **different** provider, and the two results are compared.
+**Two of them have to agree.** A send-side ULN is the configuration that decides
+who must verify a message. The sentinel reads every one of them twice, once on
+the primary endpoint and once on an endpoint from a **different** provider, then
+compares the two.
 Disagreement on required DVNs, counts or the optional threshold does not get
 averaged away or retried until it agrees; the route is flagged as potentially
 manipulated and surfaced as CRITICAL. The third endpoint is failover, so a flaky
@@ -217,15 +218,36 @@ input whose coverage grows over time.
 where they exist. `score.ts` turns findings into a number, one deduction per
 distinct check at that check's worst severity.
 
-**Then two gates, and they are the parts worth reading.**
+**Then three gates, and they are the parts worth reading.**
 
 The **attest gate** decides what this instance signs. `ATTEST_SCOPE` and
-`ATTEST_PINNED` are the two inputs, and `backend/.env.flare.example` records what
-this instance sets them to. It signs for every asset it watches. The gate is
+`ATTEST_PINNED` are the two inputs, and both are deliberately absent from
+`backend/.env.flare.example`: unset means sign every watched asset, at every
+band, which is what this instance does and what production does. The gate is
 still the thing standing in front of the transaction, and it still fails closed:
 under `ATTEST_SCOPE=allowlist` an empty or unparseable `ATTEST_PINNED` signs
 nothing, and any value of `ATTEST_SCOPE` the code does not recognise signs
 nothing either. A typo cannot widen it.
+
+**`total()` runs ahead of the number of assets, and that is the design.** Six
+watched assets do not produce exactly six records. The re-sign fingerprint covers
+the findings a cycle could *read*, so a corridor that was unreadable last cycle
+and readable now moves the fingerprint and the asset signs again. Read it as one
+record per change in the reading, not one per asset, and use `countOf` and
+`historyOf` to walk the trail. Do not read a rising count as double-signing.
+
+The **alert gate** decides what gets said out loud, and it is the reason this is
+a sentinel rather than a scanner. `dispatchAlert()` returns immediately on PASS,
+so a clean asset gets signed and never spoken about. Anything else goes to
+Telegram, and then keeps going: a CRITICAL nobody has fixed comes back every 12
+hours, an AT_RISK every 7 days, both tunable in minutes through
+`REPING_CRITICAL_MINUTES` and `REPING_AT_RISK_MINUTES`. A reminder is a reminder
+and is priced like one. The first fire also sends an AlertBus transaction and a
+dust nudge to the OFT owner; a repeat sends neither, and writes no second
+attestation, because nobody fixed anything and the chain has nothing new to
+record. On this instance both on-chain legs are dark: `TELEGRAM_BOT_TOKEN` and
+`ALERT_BUS_ADDRESS` are unset, and `sendTelegram` logs the composed message
+instead of sending it.
 
 The **render filter** decides what the page says. `/api/sentinel/status` returns
 the whole read, and `isDemoAsset()` splits the page: our own asset shows full
