@@ -151,6 +151,60 @@ describe("produceWeakConfigAttestation dedup", () => {
     vi.useRealTimers();
   });
 
+  // ── PASS assets get exactly one signed record ────────────────────────────
+  //
+  // Added 2026-08-09. The caller's gate carried two exclusions and both were
+  // bugs; this is the second. A clean asset never drifts, so the drift producer
+  // never fires for it either — while PASS was excluded here too, the two
+  // assets scoring 100/100 were the only ones in the fleet with no attestation
+  // of any kind, and a registry that records only failures cannot be used to
+  // check that a config was read and found sound.
+
+  function passFindings(): Finding[] {
+    return [{ severity: "PASS", check: "DVN Count", detail: "2-of-2 DVN", evidence: "observed" }];
+  }
+
+  it("attests a PASS asset on first sight, at the band it scored", async () => {
+    const o = await loadOrchestrator();
+    await o.produceWeakConfigAttestation(watched(), snapshot(), passFindings(), 100, "PASS", []);
+    expect(attest).toHaveBeenCalledTimes(1);
+    expect(attest.mock.calls[0][3]).toBe(100);
+    expect(attest.mock.calls[0][4]).toBe("PASS");
+  });
+
+  it("signs a clean asset once and then stays quiet indefinitely", async () => {
+    // Not via a special case in the producer: PASS is absent from
+    // REPEAT_AFTER_MS, so dueForRepeat is false at any age. A year on, still one
+    // write. If someone ever adds a PASS row to that map, this fails.
+    const o = await loadOrchestrator();
+    await o.produceWeakConfigAttestation(watched(), snapshot(), passFindings(), 100, "PASS", []);
+    vi.setSystemTime(new Date(Date.now() + 365 * 24 * 60 * 60_000));
+    await o.produceWeakConfigAttestation(watched(), snapshot(), passFindings(), 100, "PASS", []);
+    expect(attest).toHaveBeenCalledTimes(1);
+    expect(dispatchAlert).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("does not announce a 100/100 asset as a persistent CRITICAL", async () => {
+    // The verdict string is the public feed's `detail` whenever a verdict has no
+    // findings to show instead — which is precisely the PASS case. It was
+    // hardcoded to CRITICAL back when CRITICAL was the only band that reached
+    // this producer.
+    const o = await loadOrchestrator();
+    await o.produceWeakConfigAttestation(watched(), snapshot(), passFindings(), 100, "PASS", []);
+    const v = dispatchAlert.mock.calls[0][0];
+    expect(v.verdict).not.toMatch(/CRITICAL/);
+    expect(v.verdict).toContain("100/100");
+  });
+
+  it("names the band it actually assessed, not the one it was written for", async () => {
+    const o = await loadOrchestrator();
+    await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 75, "AT_RISK", []);
+    const v = dispatchAlert.mock.calls[0][0];
+    expect(v.verdict).toContain("AT_RISK");
+    expect(v.verdict).not.toMatch(/CRITICAL/);
+  });
+
   it("re-fires when the finding set materially changes", async () => {
     const o = await loadOrchestrator();
     await o.produceWeakConfigAttestation(watched(), snapshot(), findings(), 25, "CRITICAL", []);

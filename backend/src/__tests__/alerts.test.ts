@@ -133,6 +133,26 @@ describe("alert copy asserts only what the verdict can prove", () => {
     vi.restoreAllMocks();
   });
 
+  // Added 2026-08-09, and load-bearing from that date. Clean assets now reach
+  // the weak-config producer so that they get one signed record each, and the
+  // ONLY thing keeping that from also pushing "TKNA — PASS" into the public
+  // Telegram channel on every fleet change is dispatchAlert's early return on
+  // PASS. Nothing asserted it. Composing no copy at all is the observable:
+  // with the guard removed this function builds and logs a full message.
+  it("says nothing at all about an asset that passed", async () => {
+    const copy = await captureCopy(baseVerdict({
+      riskLevel: "PASS",
+      score: 100,
+      reasons: [],
+      verdict: "Config read clean, no drift (score 100/100)",
+      verdictPath: "weak-config",
+      attestTxHash: "0xfeed",
+    }));
+
+    expect(copy).toBe("");
+    expect(copy).not.toContain("TKNA");
+  });
+
   it("case 1: a weak-config verdict REFUSED BY SCOPE asserts neither attestation nor drift", async () => {
     const copy = await captureCopy(baseVerdict({ verdictPath: "weak-config" })); // no attestTxHash
 

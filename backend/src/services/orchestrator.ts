@@ -109,7 +109,9 @@ export function weakCorridorsFingerprint(corridors: WeakAlertCorridors): string 
 
 // How long an UNCHANGED finding stays quiet before it is worth saying again.
 // A risk level absent from this map never re-pings, which is why PASS is not
-// here: there is nothing to be reminded of.
+// here: there is nothing to be reminded of. PASS still reaches this producer
+// and still gets its one attestation — this map governs the REPEAT, not the
+// first write, and the two are different questions.
 //
 // Env-overridable in minutes so an operator can tune the cadence without a
 // deploy, and so tests do not have to wait twelve hours.
@@ -169,7 +171,16 @@ export async function produceWeakConfigAttestation(
     ticker: watched.ticker,
     score,
     riskLevel,
-    verdict: `Persistent CRITICAL config — pre-existing risk, no drift (score ${score}/100)`,
+    // Hardcoding CRITICAL here was safe only while CRITICAL was the sole band
+    // that reached this producer. It has not been since AT_RISK was let in, and
+    // PASS makes it plainly false: this string is the feed's `detail` whenever a
+    // verdict carries no findings to show instead, so a 100/100 asset would have
+    // announced itself on the judge-facing page as a persistent CRITICAL config.
+    // Say the band that was actually assessed.
+    verdict:
+      riskLevel === "PASS"
+        ? `Config read clean, no drift (score ${score}/100)`
+        : `Persistent ${riskLevel} config — pre-existing risk, no drift (score ${score}/100)`,
     reasons,
     verdictHash: hash,
     verdictPath: "weak-config",

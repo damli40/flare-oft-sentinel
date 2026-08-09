@@ -251,11 +251,36 @@ export async function pollOnce(): Promise<void> {
         // both paths in the same tick would land two on-chain attestations for the
         // same config change.
         const driftVerdict = await runCheck(w, snap);
-        // CRITICAL and AT_RISK both come through here. AT_RISK used to be
-        // excluded, which silently made its re-ping cadence dead code: the
-        // interval existed, nothing ever reached the function that reads it.
-        // PASS stays out — there is nothing to be reminded of.
-        if (!driftVerdict && (riskLevel === "CRITICAL" || riskLevel === "AT_RISK")) {
+        // EVERY band comes through here, PASS included. Two exclusions used to
+        // live on this line and both were bugs:
+        //
+        //   AT_RISK was excluded, which silently made its re-ping cadence dead
+        //   code — the interval existed, nothing ever reached the reader.
+        //
+        //   PASS was excluded on the reasoning that there is nothing to be
+        //   reminded of. True of ALERTS, false of ATTESTATIONS, and this call
+        //   drives both. A clean asset that stays clean never drifts, so the
+        //   drift path never fires for it either, and the result was that the
+        //   two assets scoring 100/100 were the only ones with no signed record
+        //   at all. A registry that holds only the failures cannot be used to
+        //   check that a config was read and found sound at a given block,
+        //   which is the half a reader cannot reconstruct for themselves.
+        //
+        // PASS goes quiet on its own, without a special case here: the
+        // fingerprint suppresses the re-sign, PASS is absent from
+        // REPEAT_AFTER_MS so it never re-pings, and dispatchAlert returns early
+        // on PASS — so this attests without alerting.
+        //
+        // "Quiet" is not "exactly one write, forever". The fingerprint covers
+        // the findings we could READ this cycle, so a corridor that was
+        // unreadable last cycle and readable now moves it without anything
+        // changing on-chain, and the asset signs again. Observed on 2026-08-09:
+        // DINERO and MOFT re-signed one cycle after their first record, with
+        // persisted state intact. That is a re-read, not a duplicate — the new
+        // attestation covers corridors the old one could not see — but do not
+        // write "one attestation per asset" anywhere. It is one attestation per
+        // change in what we could read.
+        if (!driftVerdict) {
           await produceWeakConfigAttestation(w, snap, findings, score, riskLevel, tis);
         }
       } catch (e: any) {

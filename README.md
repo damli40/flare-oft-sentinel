@@ -659,7 +659,7 @@ npm install
 npx vitest run
 ```
 
-> Measured when this repository was exported: **722 tests across 36 files**, all passing. If your run differs, that is a finding worth an issue.
+> Measured when this repository was exported: **727 tests across 36 files**, all passing. If your run differs, that is a finding worth an issue.
 
 These tests are the specification. They pin the rule behaviour with fixture
 snapshots and a fake RPC. No keys, no chain access, and no RPC call.
