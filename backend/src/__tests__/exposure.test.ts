@@ -6,6 +6,7 @@ import {
   exposureKey,
   readFleetExposure,
   resetExposureCache,
+  __resetExposureChainMismatchWarning,
 } from "../services/exposure.js";
 import { FTSOV2_ADDRESS } from "../services/ftso.js";
 import { MULTICALL3_ADDRESS } from "../services/multicall.js";
@@ -569,6 +570,59 @@ describe("readFleetExposure — chain scope", () => {
     expect(out.size).toBe(1);
     expect(out.get(exposureKey(CHAIN_ID, PRICED))).toBeDefined();
     expect(out.get(exposureKey(OTHER_CHAIN_ID, UNPRICEABLE))).toBeUndefined();
+  });
+
+  // Scoping to the sentinel chain is correct, but a deployment that SIGNS on one
+  // chain and WATCHES on others matches nothing here and serves exposure: null on
+  // every row forever — which the rail page renders as "not read this cycle", a
+  // transient label on a permanent condition. It has to say so.
+  describe("the permanent mismatch announces itself", () => {
+    beforeEach(() => __resetExposureChainMismatchWarning());
+
+    it("warns, naming both the sentinel chain and the chains actually watched", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const out = await readFleetExposure(
+        [{ address: PRICED, chainId: OTHER_CHAIN_ID, ticker: "FXRP" }],
+        { call: fakeCall(healthy), ...FRESH },
+      );
+      expect(out.size).toBe(0);
+      expect(warn).toHaveBeenCalledTimes(1);
+      const msg = String(warn.mock.calls[0][0]);
+      expect(msg).toContain(String(CHAIN_ID));
+      expect(msg).toContain(String(OTHER_CHAIN_ID));
+      warn.mockRestore();
+    });
+
+    it("says it ONCE, because /status is polled every 60s by every open page", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const assets = [{ address: PRICED, chainId: OTHER_CHAIN_ID, ticker: "FXRP" }];
+      for (let i = 0; i < 25; i++) {
+        await readFleetExposure(assets, { call: fakeCall(healthy), ...FRESH });
+      }
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it("stays silent for an empty watchlist, which is not a misconfiguration", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const out = await readFleetExposure([], { call: fakeCall(healthy), ...FRESH });
+      expect(out.size).toBe(0);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("stays silent when at least one asset IS on the sentinel chain", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      await readFleetExposure(
+        [
+          { address: PRICED, chainId: CHAIN_ID, ticker: "FXRP" },
+          { address: UNPRICEABLE, chainId: OTHER_CHAIN_ID, ticker: "FXRP" },
+        ],
+        { call: fakeCall(healthy), ...FRESH },
+      );
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
   });
 });
 

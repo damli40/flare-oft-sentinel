@@ -133,4 +133,39 @@ describe("attestPinnedAssets", () => {
     expect(err).toHaveBeenCalledTimes(1);
     expect(String(err.mock.calls[0][0])).toContain("mantle");
   });
+
+  // The off-chain filter above rejects on the premise "this instance never reads
+  // it". WATCH_PINNED bypasses chainAllowed (sentinel.ts:122), so a pinned asset
+  // on an off-list chain IS read — and the premise is false for exactly it.
+  it("keeps an off-WATCH_CHAINS entry that WATCH_PINNED puts in the read set", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("WATCH_CHAINS", "flare");
+    vi.stubEnv("WATCH_PINNED", `mantle:${ADDR}:OFFCHAIN`);
+    vi.stubEnv("ATTEST_PINNED", `mantle:${ADDR}:OFFCHAIN`);
+    expect(attestPinnedAssets()).toEqual([{ chainKey: "mantle", address: ADDR, ticker: "OFFCHAIN" }]);
+    expect(err).not.toHaveBeenCalled();
+  });
+
+  // Guards the fix against a silent no-op: the two lists are matched by a string
+  // key, and if only one side normalised case the Set would never hit. Same
+  // asset, checksummed in one variable and lowercased in the other.
+  it("matches the two lists regardless of address case or chainKey case", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("WATCH_CHAINS", "flare");
+    vi.stubEnv("WATCH_PINNED", `MANTLE:${ADDR.toLowerCase()}:OFFCHAIN`);
+    vi.stubEnv("ATTEST_PINNED", `mantle:${ADDR}:OFFCHAIN`);
+    expect(attestPinnedAssets()).toHaveLength(1);
+    expect(err).not.toHaveBeenCalled();
+  });
+
+  // The widening must not become a hole: an asset in NEITHER list is still refused.
+  it("still refuses an entry that is off-chain and not pinned for reading", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("WATCH_CHAINS", "flare");
+    vi.stubEnv("WATCH_PINNED", `mantle:0x1111111111111111111111111111111111111111:OTHER`);
+    vi.stubEnv("ATTEST_PINNED", `mantle:${ADDR}:OFFCHAIN`);
+    expect(attestPinnedAssets()).toEqual([]);
+    expect(err).toHaveBeenCalledTimes(1);
+    expect(String(err.mock.calls[0][0])).toContain("WATCH_PINNED");
+  });
 });

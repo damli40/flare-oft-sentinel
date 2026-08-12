@@ -32,14 +32,14 @@ flowchart TB
     %% ── Leg A: sign it ────────────────────────────────────────────────────
     gate{{"THE ATTEST GATE<br/>Unset, as it ships here and in production:<br/>sign every watched asset, every band.<br/>Set ATTEST_SCOPE to an allowlist and only<br/>ATTEST_PINNED signs. Set it to anything we<br/>cannot parse and it signs NOTHING."}}
     reg[("AuditRegistry<br/>Flare Mainnet · chainId 14<br/>0x2d2b385e…2Dd144<br/>asset, chain, verdict hash,<br/>score, band. No finding text.")]
-    resign["total() runs ahead of the asset count, on purpose.<br/>&nbsp;<br/>The re-sign fingerprint covers the findings a cycle could READ.<br/>A corridor unreadable last cycle and readable now moves it,<br/>and the asset signs again. So it is one record per change in<br/>the reading, and not one per asset.<br/>countOf / historyOf walk the trail."]
+    resign["total() runs ahead of the asset count.<br/>&nbsp;<br/>A config that changes gets a second record and the registry keeps both,<br/>so it is one record per change, not one per asset.<br/>countOf / historyOf walk the trail.<br/>&nbsp;<br/>Most of today's excess was a bug, fixed 2026-08-12. A far-side read<br/>failure does not go quiet: the engine falls back to the near side, marks<br/>the finding INFERRED, and says so in the text. That weaker reading<br/>replaced the good one and the asset re-signed with nothing changed.<br/>7 records on one asset in 2 days, all identical 10/CRITICAL.<br/>&nbsp;<br/>Now a weaker reading never overwrites a stronger one, unless it is MORE<br/>severe. The hash still covers the full text on purpose: drift compares<br/>the send side only, so a receive-side DVN swap at an unchanged count<br/>lives nowhere but those names."]
     nosign["no transaction<br/>a scope we cannot interpret<br/>signs nothing, and never guesses"]
 
     %% ── Leg B: keep saying it ─────────────────────────────────────────────
     alert{{"THE ALERT GATE<br/>dispatchAlert() returns on PASS.<br/>A clean asset is signed and never spoken about."}}
     first["FIRST TIME: Telegram, plus an AlertBus<br/>transaction and a dust nudge to the OFT owner"]
     again["THE REMINDER: Telegram only<br/>CRITICAL every 12h · AT_RISK every 7d · PASS never<br/>No second attestation. No AlertBus. No second nudge.<br/>Nobody fixed it, so the chain has nothing new to record."]
-    quiet["On THIS instance: Telegram is LIVE and the cadence is firing.<br/>ALERT_BUS_ADDRESS stays unset, so the on-chain leg never runs<br/>and every message reads 'AlertBus: not sent'. Two of the six are<br/>live third-party tokens, and dusting their owners to announce a<br/>finding is not this deployment's call to make.<br/>Signer 0xf374113b…0e66 has 9 outbound transactions on Flare, all<br/>9 to the registry. Verifiable, and the reason the box says this."]
+    quiet["On THIS instance: Telegram is LIVE and the cadence is firing.<br/>ALERT_BUS_ADDRESS stays unset, so the on-chain leg never runs<br/>and every message reads 'AlertBus: not sent'. Two of the six are<br/>live third-party tokens, and dusting their owners to announce a<br/>finding is not this deployment's call to make.<br/>Signer 0xf374113b…0e66 has never sent a transaction on Flare that<br/>was not an attestation: its nonce equals the registry's total().<br/>Check both and they match. That is the reason this box can say this."]
 
     %% ── Leg C: publish it ─────────────────────────────────────────────────
     api["GET /api/sentinel/status<br/>the whole read,<br/>nothing filtered out"]
@@ -73,7 +73,7 @@ flowchart TB
     score --> api
     score --> tis
 
-    gate -->|"first sight, and whenever the reading changes"| reg
+    gate -->|"first sight, and whenever the findings change"| reg
     gate -.->|"a scope we cannot read"| nosign
     reg -.- resign
 

@@ -11,7 +11,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import type { RiskLevel } from "../types.js";
 import { attestScopeMode, attestPinnedAssets } from "./watch-scope.js";
-import { getChainRefByKey, sentinelChain as sentinelChainInfo } from "./chain-registry.js";
+import { getChainRefByKey, sentinelChain as sentinelChainInfo, sentinelRpcUrl } from "./chain-registry.js";
 
 // AuditRegistry.attest(oft, chainId, verdictHash, score, risk, agentId) → id
 const REGISTRY_ABI = [
@@ -36,19 +36,42 @@ const REGISTRY_ABI = [
 const RISK_ENUM: Record<RiskLevel, number> = { PASS: 1, AT_RISK: 2, CRITICAL: 4 };
 
 const SENTINEL_CHAIN_ID = Number(process.env.SENTINEL_CHAIN_ID ?? 5003);
-const SENTINEL_RPC = process.env.SENTINEL_RPC ?? sentinelChainInfo().defaultRpc;
 const AGENT_ID = BigInt(process.env.SENTINEL_AGENT_ID ?? 1);
 
-// Display-only identity, from the chain registry. Hardcoding "Mantle Sepolia"
-// made every log line lie on a Flare instance; the native currency was still
-// hardcoded to MNT after the label was fixed, so amounts were quoted in the
-// wrong unit. Defaults keep prod byte-identical.
-const sentinelChain = defineChain({
-  id: SENTINEL_CHAIN_ID,
-  name: sentinelChainInfo().name,
-  nativeCurrency: sentinelChainInfo().nativeCurrency,
-  rpcUrls: { default: { http: [SENTINEL_RPC] } },
-});
+// LAZY, not module-level. sentinelRpcUrl() throws for a sentinel chain with no
+// configured endpoint, which is the right answer at the moment of signing and the
+// wrong one at import: services/sentinel.ts imports alerts.ts, and the read-only
+// scripts (scan-readonly.ts, verify-multichain-watchlist.ts) import sentinel.ts.
+// Resolving at load made those scripts require an endpoint they never call, so a
+// safety check on the WRITE path became an import-time crash on READ paths.
+// Deferring keeps the fail-loud property exactly where it belongs.
+//
+// Memoised so repeated attestations do not rebuild the chain object, and so the
+// error surfaces once per process rather than once per call.
+let _rpc: string | null = null;
+function sentinelRpc(): string {
+  return (_rpc ??= sentinelRpcUrl());
+}
+/** Display-only identity, from the chain registry. Hardcoding "Mantle Sepolia"
+ *  made every log line lie on a Flare instance; the native currency was still
+ *  hardcoded to MNT after the label was fixed, so amounts were quoted in the
+ *  wrong unit. Defaults keep prod byte-identical. */
+function buildChain() {
+  return defineChain({
+    id: SENTINEL_CHAIN_ID,
+    name: sentinelChainInfo().name,
+    nativeCurrency: sentinelChainInfo().nativeCurrency,
+    rpcUrls: { default: { http: [sentinelRpc()] } },
+  });
+}
+// Typed from buildChain's own return, NOT `ReturnType<typeof defineChain>` — the
+// latter is the generic, widened Chain, and viem then loses the literal it needs
+// to infer `chain` on writeContract, which surfaces as "Property 'chain' is
+// missing" at every call site.
+let _chain: ReturnType<typeof buildChain> | null = null;
+function sentinelChainObj(): ReturnType<typeof buildChain> {
+  return (_chain ??= buildChain());
+}
 
 function account() {
   const pk = process.env.SENTINEL_PRIVATE_KEY;
@@ -112,8 +135,9 @@ export async function attest(
   risk: RiskLevel
 ): Promise<AttestResult> {
   const acct = account();
-  const wallet = createWalletClient({ account: acct, chain: sentinelChain, transport: http(SENTINEL_RPC) });
-  const pub = createPublicClient({ chain: sentinelChain, transport: http(SENTINEL_RPC) });
+  const chain = sentinelChainObj();
+  const wallet = createWalletClient({ account: acct, chain, transport: http(sentinelRpc()) });
+  const pub = createPublicClient({ chain, transport: http(sentinelRpc()) });
   const registry = registryAddress();
 
   const txHash = await wallet.writeContract({

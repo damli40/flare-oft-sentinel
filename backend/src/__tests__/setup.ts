@@ -66,3 +66,29 @@ delete process.env.ATTEST_PINNED;
  * is how admin-gated-routes.test.ts and declarations-api.test.ts cover both sides.
  */
 delete process.env.ADMIN_TOKEN;
+
+/**
+ * Same rule, applied to every switch this instance ADDED.
+ *
+ * The four above were scrubbed because an operator's exported shell value could
+ * turn a healthy build red. The Flare port then introduced six more variables with
+ * exactly that property and did not scrub them, which is worse than the original
+ * problem in one specific way: SENTINEL_CHAIN_ID is read at CALL time by
+ * chain-registry.sentinelChain(), and the documented way to run this instance
+ * locally is to export SENTINEL_CHAIN_ID=14. So the very configuration the README
+ * tells a developer to use silently re-points every test that pins the 5003 /
+ * Mantle Sepolia default — and those tests would not fail, they would assert
+ * Flare's values while claiming to assert the default. Green, and meaningless.
+ *
+ * REPING_* matter for the same reason in the other direction: reping-cadence.test.ts
+ * pins the 12h / 7d defaults, and an operator tuning the live cadence in their shell
+ * would move the numbers under it.
+ *
+ * A test that wants any of these set stubs it with vi.stubEnv, same as ADMIN_TOKEN.
+ */
+delete process.env.SENTINEL_CHAIN_ID;
+delete process.env.SENTINEL_CHAIN_NAME;
+delete process.env.SENTINEL_RPC;
+delete process.env.X402_ENABLED;
+delete process.env.REPING_CRITICAL_MINUTES;
+delete process.env.REPING_AT_RISK_MINUTES;

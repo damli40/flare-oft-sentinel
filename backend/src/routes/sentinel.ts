@@ -3,10 +3,10 @@ import type { Request, Response } from "express";
 import { getWatched, getWatchlistHealth, pollOnce, runKelpReplay, runLibraryRevertReplay, runRpcConflictReplay, resetDemo } from "../services/sentinel.js";
 import { getVerdicts, getSnapshot, latestVerdict, getScoreHistory, getFeedEvents, clearWeakAlerts } from "../services/snapshot-store.js";
 import { assessSnapshot, RULES_VERSION } from "../services/drift.js";
-import { generateReport } from "../services/report.js";
+import { generateReport, reportIsCached } from "../services/report.js";
 import { askCopilot } from "../services/ask.js";
 import { loadDvnMeta, resolveDvn, dvnMetaHash, MetadataUnavailableError, type DvnMeta } from "../services/lz-config.js";
-import { readFleetExposure, exposureKey } from "../services/exposure.js";
+import { readFleetExposure, exposureKey, type ExposureView } from "../services/exposure.js";
 import { getChainRef, getChainRefByKey, chainDisplayName, sentinelChain, explorerBase } from "../services/chain-registry.js";
 import { requireAdmin } from "./require-admin.js";
 import type { CustodyDeclaration, Finding, OftSnapshot } from "../types.js";
@@ -42,8 +42,24 @@ const MODEL_WINDOW_MS = 60 * 60_000;
 const ASK_MAX_QUESTION_CHARS = 500;
 const modelHits = new Map<string, number[]>();
 
+// An IP's entry was only ever pruned when that same IP came back, so an IP that
+// asked once and never returned kept its array for the life of the process. On a
+// public URL — judges, crawlers, scanners — that is one permanent entry per unique
+// visitor, and nothing to bound it. Sweep every expired entry when the map has
+// grown past a size no legitimate traffic pattern reaches, which keeps the common
+// path free and the memory finite.
+const MODEL_HITS_SWEEP_AT = 1_000;
+function sweepModelHits(now: number): void {
+  if (modelHits.size < MODEL_HITS_SWEEP_AT) return;
+  for (const [ip, hits] of modelHits) {
+    // Entries survive only while they still constrain someone.
+    if (hits.every((t) => now - t >= MODEL_WINDOW_MS)) modelHits.delete(ip);
+  }
+}
+
 function modelRateCheck(ip: string): { ok: boolean; remaining: number; retryAfterSec: number } {
   const now = Date.now();
+  sweepModelHits(now);
   const hits = (modelHits.get(ip) ?? []).filter((t) => now - t < MODEL_WINDOW_MS);
   if (hits.length >= MODEL_LIMIT) {
     modelHits.set(ip, hits);
@@ -71,16 +87,25 @@ function modelRateGate(req: Request, res: Response): number | null {
 // GET /api/sentinel/report/:address — full markdown audit report for one watched OFT.
 // Rate-limited on the shared model window above: report generation calls DeepSeek.
 router.get("/report/:address", async (req: Request, res: Response) => {
-  // Gate first, before the watchlist read. A slot is spent whatever the address
-  // turns out to be, so probing addresses to find the watched ones costs the same
-  // as asking for a real one.
-  if (modelRateGate(req, res) === null) return;
   const addr = String(req.params.address).toLowerCase();
   const w = (await getWatched()).find((x) => x.address.toLowerCase() === addr);
+
+  // An UNKNOWN address still costs a slot, and is charged before the 404. That is
+  // the anti-enumeration property the old gate-first order bought: probing the
+  // address space to discover which OFTs are watched must not be cheaper than
+  // asking for a real one.
   if (!w) {
+    if (modelRateGate(req, res) === null) return;
     res.status(404).json({ error: "Not a watched OFT" });
     return;
   }
+
+  // A WATCHED address whose report is already cached costs no model spend, so it
+  // costs no slot. The window protects the DeepSeek budget; charging for a request
+  // that cannot touch DeepSeek protects nothing and burns an hour's allowance on
+  // someone simply re-reading the six reports this instance publishes.
+  if (!reportIsCached(w) && modelRateGate(req, res) === null) return;
+
   try {
     const markdown = await generateReport(w);
     if (!markdown) {
@@ -128,9 +153,33 @@ router.get("/status", async (_req: Request, res: Response) => {
   // the map serves `exposure: null`, which the page states as "not read this
   // cycle" — never as zero.
   //
-  // Nothing below reads it. The score is computed by the rule engine from the
-  // config snapshot alone, and a price is not one of its inputs.
-  const exposures = await readFleetExposure(list);
+  // The score is computed by the rule engine from the config snapshot alone, and a
+  // price is not one of its inputs — so the price read and the verdict work are
+  // genuinely independent and must not be serialised.
+  //
+  // This was `await readFleetExposure(list)` on its own line, which made every
+  // /status pay the price read IN FULL before the first verdict began. When the
+  // FTSOv2 node rate-limits, that read burns its whole EXPOSURE_TIMEOUT_MS (10s)
+  // before failing soft, and exposure.ts caches only successes, so the stall
+  // repeated on every request — with the rail page polling every 60s per open
+  // viewer and the dashboard polling too.
+  //
+  // Start it here, await it at the point of use inside the row builder. One
+  // promise awaited many times is the same single read; the difference is that
+  // the snapshot assessment now runs DURING it instead of after it.
+  //
+  // The .catch is not decoration. Deferring the await means the promise can now
+  // outlive the thing that was going to await it: if `list` is empty no callback
+  // is ever created, and if a row callback throws before reaching the exposure
+  // line, Promise.all rejects and leaves this one unattended. readFleetExposure
+  // is documented never to reject, but "documented" is not "enforced", and an
+  // unhandled rejection takes the process down under Node's default policy —
+  // trading a null price for a crash. Absorb it here so the contract holds at the
+  // call site whatever the callee does.
+  const exposuresP = readFleetExposure(list).catch((e: any) => {
+    console.error("[status] exposure read rejected, serving prices as unread:", e?.message ?? e);
+    return new Map<string, ExposureView>();
+  });
   const watched = await Promise.all(list.map(async (w) => {
     const snap = getSnapshot(w.address, w.chainId);
     const a = snap ? await assessSnapshot(snap, w.ticker) : null;
@@ -204,7 +253,7 @@ router.get("/status", async (_req: Request, res: Response) => {
       // Optional and absent-safe: an older stored snapshot, or an instance whose
       // price read failed, carries null here and the page renders that as
       // unread. No existing field's meaning or type changes.
-      exposure: exposures.get(exposureKey(w.chainId, w.address)) ?? null,
+      exposure: (await exposuresP).get(exposureKey(w.chainId, w.address)) ?? null,
     };
   }));
 

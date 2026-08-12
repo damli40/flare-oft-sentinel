@@ -222,7 +222,9 @@ export interface SentinelChain {
   name: string;
   /** Fallback RPC when SENTINEL_RPC is unset. Lives here so the identity modules
    *  (attestor, alerts) hold no chain literal of their own. */
-  defaultRpc: string;
+  /** null when this chain has no built-in endpoint — callers must not invent one.
+   *  Resolve it through sentinelRpcUrl(), which states the failure instead. */
+  defaultRpc: string | null;
   /** null when unmapped — callers must not invent a link. */
   explorer: string | null;
   /** Display-only (viem error formatting); never used to compute a value. */
@@ -245,11 +247,41 @@ export function sentinelChain(): SentinelChain {
     // 5003 is a testnet and is deliberately not in the registry.
     name: process.env.SENTINEL_CHAIN_NAME ?? (fromRegistry ? chainDisplayName(fromRegistry) : "Mantle Sepolia"),
     explorer: explorerBase(chainId),
-    // Production default preserved exactly: 5003 -> Mantle Sepolia.
-    defaultRpc: DEFAULT_RPC[chainId] ?? DEFAULT_RPC[5003],
+    // NO CROSS-CHAIN FALLBACK. This read `?? DEFAULT_RPC[5003]`, so any chain id
+    // outside this two-entry table silently resolved to Mantle Sepolia's endpoint.
+    // Signed writes would at least fail loudly on a ChainMismatchError, but plain
+    // eth_call does NOT check chain id: exposure.ts reads balances and FTSOv2
+    // prices through this same endpoint, so a mistyped SENTINEL_CHAIN_ID served
+    // Mantle Sepolia state on /status labelled as the sentinel chain's holdings.
+    // Wrong numbers with no error is the worst failure this file can produce, so
+    // an unknown chain now has no endpoint and sentinelRpcUrl() says so by name.
+    // 5003 and 14 are unaffected: both are in the table.
+    defaultRpc: DEFAULT_RPC[chainId] ?? null,
     // Unmapped chains fall back to ETH rather than to the previous hardcoded
     // MNT. Still a guess, but a display-only one on a path that cannot move
     // funds; the value is stated here so it is visible rather than buried.
     nativeCurrency: { ...(NATIVE_CURRENCY[chainId] ?? { name: "Ether", symbol: "ETH" }), decimals: 18 },
   };
+}
+
+/** The endpoint every sentinel-chain read and write must go through: the operator's
+ *  SENTINEL_RPC if set, otherwise this chain's built-in default.
+ *
+ *  Throws when neither exists. That is the point. The three call sites all wrote
+ *  `process.env.SENTINEL_RPC ?? info.defaultRpc` and, before the fallback above was
+ *  removed, could not tell "my chain's endpoint" from "some other chain's endpoint" —
+ *  so the failure surfaced as wrong data rather than as a stopped process. Naming
+ *  the chain and the variable turns a silent misconfiguration into one line of log. */
+export function sentinelRpcUrl(): string {
+  const info = sentinelChain();
+  const rpc = process.env.SENTINEL_RPC ?? info.defaultRpc;
+  if (!rpc) {
+    throw new Error(
+      `No RPC endpoint for sentinel chain ${info.chainId} (${info.name}). ` +
+        `This chain has no built-in default, so set SENTINEL_RPC to an endpoint for it. ` +
+        `Refusing to fall back to another chain's endpoint: eth_call does not verify ` +
+        `chain id, so that would return another chain's state as this one's.`,
+    );
+  }
+  return rpc;
 }

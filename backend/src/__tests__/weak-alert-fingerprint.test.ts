@@ -150,3 +150,119 @@ describe("weakCorridorsFingerprint — stable identity across partial reads", ()
     expect(before).not.toBe(after);
   });
 });
+
+// Round 3 (observed live 2026-08-11, rules 5.0.0). Round 2 handles a corridor whose
+// reads VANISH. This is a corridor that still answers, but answers from the wrong
+// side.
+//
+// When a destination's receive config will not read, drift.ts does not go quiet. It
+// falls back to the send side, marks the finding `inferred`, and says so in the
+// text: the quorum note becomes "receive config unreadable — send side used as a
+// proxy" and the DVN names resolve on the SOURCE chain, so the names differ too.
+//
+// The corridor still counts as readable, because that tests the SEND-side uln and
+// the send side read fine. So the degraded reading replaced the good one, the hash
+// moved, and the asset re-signed. DINERO took seven records in two days that way,
+// all identical 10/CRITICAL, two of them three minutes apart; total() reached 18.
+//
+// Fixed by refusing the downgrade, NOT by weakening the hash. The hash still covers
+// full detail, because detectDrift compares only the send-side uln, the library
+// booleans and rpcConflict — it never reads receiveUln and never compares peers, so
+// a receive-side DVN swap at an unchanged count has no other signature anywhere.
+describe("a degraded reading never overwrites a good one", () => {
+  // The SAME corridor and check, read well and read poorly. Note the send-side uln
+  // is present in both cases: this is a far-side failure, not a corridor outage.
+  const OBSERVED: Finding = {
+    severity: "MEDIUM",
+    evidence: "observed",
+    check: "DVN Count",
+    detail: "plume: 2 effective DVNs (LayerZero Labs, Nethermind; 2 required, on the receive side): minimal redundancy.",
+  };
+  const INFERRED: Finding = {
+    severity: "MEDIUM",
+    evidence: "inferred",
+    check: "DVN Count",
+    detail: "plume: 2 effective DVNs (Nethermind, LayerZero Labs; receive config unreadable — send side used as a proxy): minimal redundancy.",
+  };
+  const readableCorridor = snapshot([route("plume")]);
+
+  it("keeps the observed reading when the far side degrades", () => {
+    const good = mergeWeakFindings([OBSERVED], readableCorridor, null);
+    const degraded = mergeWeakFindings([INFERRED], readableCorridor, good);
+    expect(degraded.plume).toHaveLength(1);
+    expect(degraded.plume[0].evidence).toBe("observed");
+    expect(weakCorridorsFingerprint(degraded)).toBe(weakCorridorsFingerprint(good));
+  });
+
+  it("survives a full flap cycle without ever looking changed", () => {
+    const a = mergeWeakFindings([OBSERVED], readableCorridor, null);
+    const b = mergeWeakFindings([INFERRED], readableCorridor, a);
+    const c = mergeWeakFindings([OBSERVED], readableCorridor, b);
+    const d = mergeWeakFindings([INFERRED], readableCorridor, c);
+    const fp = weakCorridorsFingerprint(a);
+    for (const state of [b, c, d]) expect(weakCorridorsFingerprint(state)).toBe(fp);
+  });
+
+  it("does not accumulate both wordings", () => {
+    let state = mergeWeakFindings([OBSERVED], readableCorridor, null);
+    for (let i = 0; i < 10; i++) {
+      state = mergeWeakFindings([i % 2 ? OBSERVED : INFERRED], readableCorridor, state);
+    }
+    expect(state.plume).toHaveLength(1);
+  });
+
+  it("accepts an inferred reading when there is no better one to keep", () => {
+    const first = mergeWeakFindings([INFERRED], readableCorridor, null);
+    expect(first.plume).toEqual([INFERRED]);
+  });
+
+  it("upgrades back to observed the moment the far side answers again", () => {
+    const a = mergeWeakFindings([INFERRED], readableCorridor, null);
+    const b = mergeWeakFindings([OBSERVED], readableCorridor, a);
+    expect(b.plume[0].evidence).toBe("observed");
+    // and that upgrade IS a change: we now know something we did not know before.
+    expect(weakCorridorsFingerprint(b)).not.toBe(weakCorridorsFingerprint(a));
+  });
+
+  // ── The guards. Refusing the downgrade must not blind the hash. ──
+
+  it("STILL catches a receive-side DVN swap at an unchanged count", () => {
+    // The attack detectDrift cannot see: same count, same severity, one verifier
+    // replaced by the attacker's. Its only signature is the name in the detail.
+    const swapped: Finding = {
+      ...OBSERVED,
+      detail: "plume: 2 effective DVNs (LayerZero Labs, EvilDVN; 2 required, on the receive side): minimal redundancy.",
+    };
+    const before = mergeWeakFindings([OBSERVED], readableCorridor, null);
+    const after = mergeWeakFindings([swapped], readableCorridor, before);
+    expect(after.plume[0]).toEqual(swapped);
+    expect(weakCorridorsFingerprint(after)).not.toBe(weakCorridorsFingerprint(before));
+  });
+
+  it("STILL catches a delivery state turning from unused to stranding", () => {
+    // blockClaim returns the same severity on both branches; only the note moves.
+    const unused = f("Half-Wired Corridor", "plume: peer set one way only. No funds exposed yet.", "HIGH");
+    const stranding = f("Half-Wired Corridor", "plume: peer set one way only. Value is observably stranded.", "HIGH");
+    const before = mergeWeakFindings([unused], readableCorridor, null);
+    const after = mergeWeakFindings([stranding], readableCorridor, before);
+    expect(weakCorridorsFingerprint(after)).not.toBe(weakCorridorsFingerprint(before));
+  });
+
+  it("STILL lets a finding clear when the corridor is readable", () => {
+    // The downgrade refusal must not become a ratchet. A check that stops firing
+    // on a corridor we CAN read has genuinely stopped.
+    const before = mergeWeakFindings([OBSERVED], readableCorridor, null);
+    const after = mergeWeakFindings([], readableCorridor, before);
+    expect(after.plume ?? []).toHaveLength(0);
+    expect(weakCorridorsFingerprint(after)).not.toBe(weakCorridorsFingerprint(before));
+  });
+
+  it("STILL catches a severity change even when evidence degrades with it", () => {
+    const escalated: Finding = { ...INFERRED, severity: "CRITICAL" };
+    const before = mergeWeakFindings([OBSERVED], readableCorridor, null);
+    const after = mergeWeakFindings([escalated], readableCorridor, before);
+    // Same check, so the evidence rule would prefer the observed MEDIUM. That
+    // would hide an escalation, so severity must win over evidence.
+    expect(weakCorridorsFingerprint(after)).not.toBe(weakCorridorsFingerprint(before));
+  });
+});

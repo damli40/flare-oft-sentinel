@@ -95,6 +95,21 @@ async function writeReport(facts: unknown): Promise<string | null> {
 // regenerate when a new snapshot arrives without letting old entries accumulate.
 const cache = new Map<string, { capturedAt: number; markdown: string }>();
 
+/** Would generateReport() answer this OFT from cache, i.e. WITHOUT calling the model?
+ *
+ *  Exists so the route can charge its rate-limit slot for model SPEND rather than
+ *  for requests. The two came apart: the window's stated job is to protect the
+ *  DeepSeek budget, but a cached report costs nothing and was still billed a slot,
+ *  so re-opening the same six reports could exhaust an hour's allowance without
+ *  buying a single token. Mirrors the exact cache condition below — same key, same
+ *  capturedAt comparison — so the two cannot answer differently. */
+export function reportIsCached(w: WatchedOft): boolean {
+  const snap = getSnapshot(w.address, w.chainId);
+  if (!snap) return false;
+  const hit = cache.get(w.address.toLowerCase());
+  return hit !== undefined && hit.capturedAt === snap.capturedAt;
+}
+
 /** Generate (or return cached) a full AI-written markdown audit report for one watched OFT. */
 export async function generateReport(w: WatchedOft): Promise<string | null> {
   const snap = getSnapshot(w.address, w.chainId);

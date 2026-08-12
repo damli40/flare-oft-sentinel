@@ -32,12 +32,16 @@ afterEach(() => {
  *  the `vi.resetModules()` above gives every test a fresh, empty one. */
 async function startRouter() {
   const generateReport = vi.fn().mockResolvedValue("# audit report");
+  // Defaults to UNCACHED, which is what every test below already assumed: a
+  // request that reaches the generator is a request that spends model budget and
+  // therefore a slot. Tests that want the cached path flip this.
+  const reportIsCached = vi.fn().mockReturnValue(false);
   const askCopilot = vi.fn().mockResolvedValue({ answer: "ok", relevantOfts: [] });
   vi.doMock("../services/sentinel.js", () => ({
     getWatched: vi.fn().mockResolvedValue([{ ticker: "MOFT", address: OFT, chainId: 14 }]),
     getWatchlistHealth: () => ({ degraded: false, reasons: [], lastRefreshAt: 1, servedStaleAt: null }),
   }));
-  vi.doMock("../services/report.js", () => ({ generateReport }));
+  vi.doMock("../services/report.js", () => ({ generateReport, reportIsCached }));
   vi.doMock("../services/ask.js", () => ({ askCopilot }));
 
   const { router } = await import("../routes/sentinel.js");
@@ -46,7 +50,7 @@ async function startRouter() {
   app.use("/api/sentinel", router);
   server = app.listen(0);
   await new Promise((r) => server!.once("listening", r));
-  return { base: `http://127.0.0.1:${(server!.address() as AddressInfo).port}`, generateReport, askCopilot };
+  return { base: `http://127.0.0.1:${(server!.address() as AddressInfo).port}`, generateReport, reportIsCached, askCopilot };
 }
 
 const getReport = (base: string, address = OFT) =>
@@ -122,5 +126,54 @@ describe("the report route and the copilot share one model budget", () => {
 
     expect(body.limit).toBe(LIMIT);
     expect(body.remaining).toBe(LIMIT - 1);
+  });
+});
+
+// The window's stated job is to protect the DeepSeek budget. A cached report costs
+// nothing and used to cost a slot anyway, so re-reading the six reports this
+// instance publishes could exhaust an hour's allowance without buying one token —
+// most likely during judging, when opening every report is the obvious thing to do.
+describe("a cached report costs no model spend, so it costs no slot", () => {
+  it("serves cached reports past the limit and never calls the generator", async () => {
+    const { base, generateReport, reportIsCached } = await startRouter();
+    reportIsCached.mockReturnValue(true);
+
+    for (let i = 0; i < LIMIT * 3; i++) expect((await getReport(base)).status).toBe(200);
+
+    // Cached hits still call generateReport — it is the function that returns the
+    // cached markdown. What they must NOT do is consume the window.
+    expect(generateReport).toHaveBeenCalledTimes(LIMIT * 3);
+  });
+
+  it("leaves the whole window intact for the copilot", async () => {
+    const { base, reportIsCached } = await startRouter();
+    reportIsCached.mockReturnValue(true);
+
+    for (let i = 0; i < LIMIT * 2; i++) expect((await getReport(base)).status).toBe(200);
+
+    const body = await (await ask(base)).json();
+    expect(body.remaining).toBe(LIMIT - 1);
+  });
+
+  it("still charges an uncached report, so the budget is genuinely protected", async () => {
+    const { base, reportIsCached } = await startRouter();
+    reportIsCached.mockReturnValue(false);
+
+    for (let i = 0; i < LIMIT; i++) expect((await getReport(base)).status).toBe(200);
+
+    expect((await getReport(base)).status).toBe(429);
+  });
+
+  it("still charges an unwatched address, so probing stays expensive", async () => {
+    // The anti-enumeration property the old gate-first order bought. Discovering
+    // which OFTs are watched must not be cheaper than asking for a real one, and
+    // the cache check must not become a free 404 oracle.
+    const { base, reportIsCached } = await startRouter();
+    reportIsCached.mockReturnValue(true);
+
+    const unwatched = "0x000000000000000000000000000000000000dead";
+    for (let i = 0; i < LIMIT; i++) expect((await getReport(base, unwatched)).status).toBe(404);
+
+    expect((await getReport(base, unwatched)).status).toBe(429);
   });
 });

@@ -229,12 +229,36 @@ under `ATTEST_SCOPE=allowlist` an empty or unparseable `ATTEST_PINNED` signs
 nothing, and any value of `ATTEST_SCOPE` the code does not recognise signs
 nothing either. A typo cannot widen it.
 
-**`total()` runs ahead of the number of assets, and that is the design.** Six
-watched assets do not produce exactly six records. The re-sign fingerprint covers
-the findings a cycle could *read*, so a corridor that was unreadable last cycle
-and readable now moves the fingerprint and the asset signs again. Read it as one
-record per change in the reading, not one per asset, and use `countOf` and
-`historyOf` to walk the trail. Do not read a rising count as double-signing.
+**`total()` runs ahead of the number of assets.** Six watched assets do not
+produce exactly six records: a config that changes gets a second record, and the
+registry keeps both. Use `countOf` and `historyOf` to walk an asset's trail, and
+do not read a rising count as double-signing.
+
+*Most of the current excess was a bug, fixed 2026-08-12, and it is worth
+describing because the count is public.* When a destination chain's config will
+not read, the engine does not go quiet — it falls back to the near side, marks
+the finding `inferred` instead of `observed`, and **says so in the finding text**.
+The wording changes and the verifier names now resolve on the source chain, so
+they differ too. Same configuration, different sentence. That degraded reading
+replaced the good one in the stored state, the fingerprint moved, and the asset
+signed again. One asset collected seven records in two days that way, every one
+recording an identical 10/100 CRITICAL, two of them three minutes apart.
+
+The fix is that **a weaker reading no longer overwrites a stronger one.** For a
+given check on a given corridor, an `inferred` result is not allowed to displace
+an `observed` one, so a far-side RPC failure stops looking like a config change.
+One exception, and it matters: if the weaker reading is *more severe*, it wins
+anyway. Hiding a possible escalation because the evidence got thin is the failure
+this whole mechanism exists to prevent.
+
+**What the fix deliberately did NOT do is simplify the fingerprint.** It still
+hashes each finding in full, including its text, and it has to: drift detection
+compares the *send*-side configuration, the library-default flags, and RPC
+disagreement. It does not compare the receive side. So a receive-side verifier
+swapped at an unchanged count — the enforcement boundary, the thing an attacker
+actually has to defeat — has no signature anywhere except the names inside that
+text. Hashing only the check and severity would have been tidier and would have
+made that attack invisible.
 
 The **alert gate** decides what gets said out loud, and it is the reason this is
 a sentinel rather than a scanner. `dispatchAlert()` returns immediately on PASS,
@@ -254,8 +278,11 @@ on two writes per first-fire, an AlertBus transaction and a dust transfer to the
 OFT owner's wallet, and five of the six assets here belong to other people.
 Sending a stranger an unsolicited transfer to announce a finding about their token
 is not a call this deployment makes on its own. You can check the claim without
-trusting it: the signer `0xf374113bE1bC5315c917092729d3F09F771B0e66` has nine
-outbound transactions on Flare and all nine go to the registry.
+trusting it, and without it going stale: the signer
+`0xf374113bE1bC5315c917092729d3F09F771B0e66` has never sent a transaction on Flare
+that was not an attestation, so its **nonce equals the registry's `total()`**.
+Read both and they match. If the AlertBus leg were ever switched on, the nonce
+would run ahead.
 
 The **render filter** decides what the page says. `/api/sentinel/status` returns
 the whole read, and `isDemoAsset()` splits the page: our own asset shows full
@@ -689,7 +716,7 @@ npm install
 npx vitest run
 ```
 
-> Measured when this repository was exported: **727 tests across 36 files**, all passing. If your run differs, that is a finding worth an issue.
+> Measured when this repository was exported: **759 tests across 36 files**, all passing. If your run differs, that is a finding worth an issue.
 
 These tests are the specification. They pin the rule behaviour with fixture
 snapshots and a fake RPC. No keys, no chain access, and no RPC call.

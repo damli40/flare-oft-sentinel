@@ -14,6 +14,21 @@ import { attestInScope } from "../services/attestor.js";
 // different acts. Any test here that starts sourcing the allowlist from
 // WATCH_PINNED has reintroduced that bug.
 //
+// ⚠️ PRECISION, added 2026-08-12 because attestPinnedAssets() now reads
+// WATCH_PINNED and the sentence above reads like a blanket ban on that. It is
+// not. The two lists answer two questions and only one of them may source the
+// allowlist:
+//
+//   MEMBERSHIP — "may this asset be signed?"      ATTEST_PINNED, and only that.
+//   READABILITY — "can this instance see it?"     WATCH_CHAINS or WATCH_PINNED.
+//
+// The bug was membership leaking to WATCH_PINNED, which made every watched asset
+// signable. Consulting WATCH_PINNED to answer READABILITY cannot reintroduce it:
+// an asset absent from ATTEST_PINNED is still unsignable no matter how it is
+// watched. The readability check exists because WATCH_PINNED deliberately
+// bypasses chainAllowed (sentinel.ts:122), so "off WATCH_CHAINS" stopped being a
+// sound proxy for "never read". Covered in watch-scope.test.ts.
+//
 // Chain resolution runs against the real committed chain-registry.json (flare
 // = 14, mantle = 5000), so no registry mock is needed here — unlike getWatched,
 // which also needs dune/alerts doubles.

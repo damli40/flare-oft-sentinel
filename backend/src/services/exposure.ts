@@ -8,7 +8,7 @@ import {
 } from "viem";
 import { readExposure, type Exposure } from "./ftso.js";
 import { aggregate3Batch, MULTICALL3_ADDRESS, type Call } from "./multicall.js";
-import { sentinelChain } from "./chain-registry.js";
+import { sentinelChain, sentinelRpcUrl } from "./chain-registry.js";
 
 // ── What each watched contract holds, priced by the enshrined oracle ─────────
 //
@@ -126,7 +126,10 @@ export function resetExposureCache(): void {
  *  this file holds no chain literal of its own. */
 function defaultCall(): (to: string, data: string) => Promise<string> {
   const info = sentinelChain();
-  const rpc = process.env.SENTINEL_RPC ?? info.defaultRpc;
+  // This is the call site the missing endpoint hurt most: eth_call carries no chain
+  // id, so a wrong endpoint here returned another chain's balances and FTSOv2
+  // prices with no error anywhere, and /status served them as this chain's.
+  const rpc = sentinelRpcUrl();
   const chain = defineChain({
     id: info.chainId,
     name: info.name,
@@ -394,7 +397,41 @@ function scaledToNumber(raw: bigint, decimals: number): number {
  * node: one client speaks to one chain, and a balance answered by a different
  * chain is not a smaller number, it is a wrong one. They come back absent, which
  * the page states as unread.
+ *
+ * ⚠️ "This instance's chain" means the SENTINEL chain — where the AuditRegistry
+ * lives — not the chain an asset is watched on. On Flare those are both 14, so
+ * the two ideas look like one. They are not. A deployment that signs on one chain
+ * and watches assets on others (the Mantle shape: registry on 5003, assets on
+ * 5000 / 1 / 8453) matches nothing here and serves `exposure: null` for every row
+ * forever, which the page renders as the transient-looking "not read this cycle".
+ * The scoping below is still correct — reading a Mantle balance off a Flare node
+ * would be worse — but a permanent condition must not wear a transient label, so
+ * the mismatch now says so once instead of failing silently. Reading exposure on
+ * a chain other than the sentinel chain needs a per-chain client, which is a
+ * larger change than a scoping tweak and is tracked separately.
  */
+/** Logged at most once per process. /status is polled every 60s by every open rail
+ *  page, and a permanent misconfiguration must not become a per-request log flood —
+ *  the operator needs to see it, not drown in it. */
+let warnedChainMismatch = false;
+function warnExposureChainMismatch(chainId: number, assets: ExposureAsset[]): void {
+  if (warnedChainMismatch) return;
+  warnedChainMismatch = true;
+  const present = [...new Set(assets.map((a) => a.chainId))].sort((a, b) => a - b);
+  console.warn(
+    `[exposure] disabled: the sentinel chain is ${chainId}, but all ${assets.length} watched ` +
+      `asset(s) are on chain(s) ${present.join(", ")}. Holdings are read through the sentinel ` +
+      `chain's client only, so every row will publish exposure: null until an asset is watched ` +
+      `on chain ${chainId}. This is a configuration mismatch, not a transient read failure.`,
+  );
+}
+
+/** Test-only: the warning latch is module state, and a suite that asserts the
+ *  mismatch path more than once needs to clear it between cases. */
+export function __resetExposureChainMismatchWarning(): void {
+  warnedChainMismatch = false;
+}
+
 export async function readFleetExposure(
   assets: ExposureAsset[],
   deps: {
@@ -409,7 +446,14 @@ export async function readFleetExposure(
   const timeoutMs = deps.timeoutMs ?? EXPOSURE_TIMEOUT_MS;
   const chainId = sentinelChain().chainId;
   const inScope = assets.filter((a) => a.chainId === chainId);
-  if (inScope.length === 0) return new Map();
+  if (inScope.length === 0) {
+    // Nothing to read is normal when the watchlist is empty. Having assets and
+    // matching NONE of them is a configuration mismatch that will never resolve
+    // on its own, so name both sides once rather than serving an unexplained
+    // null on every row of every /status for the life of the process.
+    if (assets.length > 0) warnExposureChainMismatch(chainId, assets);
+    return new Map();
+  }
 
   const keys = inScope.map((a) => exposureKey(a.chainId, a.address)).join(",");
   const at = now();
@@ -423,11 +467,19 @@ export async function readFleetExposure(
   // down, not just its own row. An all-lowercase address is always accepted, and
   // the key this maps back to is lowercased too.
   const watchedAddresses = inScope.map((a) => a.address.toLowerCase());
-  const call = deps.call ?? defaultCall();
-
-  const nativeDecimals = sentinelChain().nativeCurrency.decimals;
 
   try {
+    // INSIDE the try, deliberately. defaultCall() resolves the endpoint through
+    // sentinelRpcUrl(), which THROWS for a sentinel chain with no configured RPC.
+    // Built one line above the try, that throw escaped as a rejected promise and
+    // made the "NEVER REJECTS and never throws" contract in this function's
+    // docstring false — the caller in /status now creates this promise early and
+    // awaits it late, so a rejection there is an unhandled rejection rather than
+    // a caught one, and Node's default policy is to end the process. Trading a
+    // null price for a dead server is exactly the bargain the contract exists to
+    // forbid, so the construction belongs where every other failure already lands.
+    const call = deps.call ?? defaultCall();
+    const nativeDecimals = sentinelChain().nativeCurrency.decimals;
     const { priced, shapes, custodied } = await withTimeout(
       (async () => {
         const tokens = await resolveTokens(watchedAddresses, call);

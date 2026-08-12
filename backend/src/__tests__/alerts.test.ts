@@ -110,8 +110,9 @@ function baseVerdict(over: Partial<SentinelVerdict>): SentinelVerdict {
   };
 }
 
-/** Run dispatchAlert with alerts muted-but-composed, returning every logged line. */
-async function captureCopy(v: SentinelVerdict): Promise<string> {
+/** Run dispatchAlert with alerts muted-but-composed, returning every logged line.
+ *  `opts` reaches dispatchAlert untouched so the repeat path can be exercised. */
+async function captureCopy(v: SentinelVerdict, opts: { isRepeat?: boolean } = {}): Promise<string> {
   for (const n of ["TELEGRAM_BOT_TOKEN", "ALERT_BUS_ADDRESS"]) vi.stubEnv(n, undefined);
   vi.stubEnv("TELEGRAM_PUBLIC_ALERT_CHAT_ID", "@oft_public");
   vi.stubEnv("TELEGRAM_TEAM_ALERTS_JSON", JSON.stringify({ tkna: ["123"] }));
@@ -120,7 +121,7 @@ async function captureCopy(v: SentinelVerdict): Promise<string> {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   try {
-    await dispatchAlert(v, OWNER); // owner passed so account() is never needed
+    await dispatchAlert(v, OWNER, opts); // owner passed so account() is never needed
   } finally {
     log.mockRestore();
   }
@@ -214,5 +215,84 @@ describe("copy phrase helpers", () => {
     expect(attestationPhrase(baseVerdict({}))).toBe("not attested on-chain");
     // attestationId alone is not a transaction and must not imply one.
     expect(attestationPhrase(baseVerdict({ attestationId: "7" }))).toBe("not attested on-chain");
+  });
+});
+
+// A REPEAT is a reminder that nobody acted. Both hashes are absent BY DESIGN on
+// that path — the orchestrator skips attest(), dispatchAlert skips the AlertBus
+// write — so the plain absent-hash copy ("not sent" / "not written") would tell
+// the reader the chain holds nothing about the very finding being reminded of.
+describe("a repeat must not deny the record it is reminding you about", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("does not claim 'not written' / 'not sent' on a repeat", async () => {
+    const copy = await captureCopy(baseVerdict({}), { isRepeat: true });
+    expect(copy).not.toContain("Attestation: not written");
+    expect(copy).not.toContain("AlertBus: not sent");
+    expect(copy).toContain("reminder");
+  });
+
+  it("still says 'not written' on a FIRST fire, where it is true", async () => {
+    const copy = await captureCopy(baseVerdict({}), { isRepeat: false });
+    expect(copy).toContain("Attestation: not written");
+    expect(copy).toContain("AlertBus: not sent");
+  });
+
+  // The CRITICAL public message composes its own copy of these two lines rather
+  // than reusing txLine/attestationLine, so it can drift independently — and it
+  // is the message that actually goes out on every re-ping.
+  it("fixes the CRITICAL public message too, not just the compact one", async () => {
+    const copy = await captureCopy(baseVerdict({ riskLevel: "CRITICAL" }), { isRepeat: true });
+    expect(copy).toContain("[alert:telegram:public:mock]");
+    expect(copy).not.toContain("Attestation not written");
+    expect(copy).not.toContain("AlertBus not sent");
+  });
+
+  // A hash that EXISTS still wins on a repeat — the reminder wording is the
+  // absent-hash branch only. Scoped to the attestation line on purpose: this
+  // verdict has no AlertBus hash (ALERT_BUS_ADDRESS is unset in captureCopy), so
+  // that line SHOULD read as a reminder, and a whole-message assertion would
+  // wrongly call that a failure.
+  it("shows a real hash rather than the reminder, repeat or not", async () => {
+    const copy = await captureCopy(baseVerdict({ attestTxHash: "0xdeadbeef" }), { isRepeat: true });
+    expect(copy).toContain("0xdeadbee");
+    expect(copy).not.toContain("Attestation: not");
+    // and the leg that genuinely has nothing still says so in reminder form
+    expect(copy).toContain("AlertBus: not re-sent");
+  });
+});
+
+// postX is mocked to console.log, so this pins a path that is not yet live. That
+// is the point: the guard is cheap now and the mistake is expensive later.
+describe("the public X post is first-fire only", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("posts on a NEW critical", async () => {
+    const copy = await captureCopy(baseVerdict({ riskLevel: "CRITICAL" }), { isRepeat: false });
+    expect(copy).toContain("[alert:x:mock]");
+  });
+
+  it("never posts on a repeat, however long the config stays broken", async () => {
+    const copy = await captureCopy(baseVerdict({ riskLevel: "CRITICAL" }), { isRepeat: true });
+    expect(copy).not.toContain("[alert:x:mock]");
+  });
+
+  it("never posts for AT_RISK at all", async () => {
+    const first = await captureCopy(baseVerdict({ riskLevel: "AT_RISK", score: 70 }), { isRepeat: false });
+    expect(first).not.toContain("[alert:x:mock]");
+  });
+
+  // Telegram is deliberately NOT guarded: reminding is the whole feature. Pinned
+  // so that if someone ever mutes it, they do it on purpose and this test says so.
+  it("still sends Telegram on a repeat — the reminder is the feature", async () => {
+    const copy = await captureCopy(baseVerdict({ riskLevel: "CRITICAL" }), { isRepeat: true });
+    expect(copy).toContain("[alert:telegram:public:mock]");
+    expect(copy).toContain("[alert:telegram:team:mock]");
   });
 });

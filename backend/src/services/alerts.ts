@@ -10,7 +10,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import type { RiskLevel, SentinelVerdict } from "../types.js";
 // Aliased: this module already has a local `sentinelChain` (the viem chain object).
-import { sentinelChain as sentinelChainInfo, explorerBase } from "./chain-registry.js";
+import { sentinelChain as sentinelChainInfo, explorerBase, sentinelRpcUrl } from "./chain-registry.js";
 
 // AlertBus.alert(oft, chainId, recipient, score, risk, agentId, verdictURI) payable
 const ALERTBUS_ABI = [
@@ -34,9 +34,13 @@ const ALERTBUS_ABI = [
 const RISK_ENUM: Record<RiskLevel, number> = { PASS: 1, AT_RISK: 2, CRITICAL: 4 };
 
 const SENTINEL_CHAIN_ID = Number(process.env.SENTINEL_CHAIN_ID ?? 5003);
-const SENTINEL_RPC = process.env.SENTINEL_RPC ?? sentinelChainInfo().defaultRpc;
 const AGENT_ID = BigInt(process.env.SENTINEL_AGENT_ID ?? 1);
-const NUDGE_MNT = "0.0001"; // dust nudge attached to the on-chain alert
+// Dust nudge attached to the on-chain alert, denominated in the SENTINEL CHAIN's
+// native unit — FLR here, MNT on Mantle. It was named NUDGE_MNT and documented as
+// "dust MNT nudge" while the amount was already chain-agnostic, which is the same
+// hardcoded-Mantle vocabulary the explorer and nativeCurrency fixes removed from
+// the rest of this file. The value never was Mantle-specific; only the name was.
+const NUDGE_NATIVE = "0.0001";
 
 // Attestation and AlertBus links point at the chain THIS INSTANCE's contracts
 // live on, resolved from the same env the attestor signs against — so the link
@@ -63,15 +67,31 @@ export function sentinelTxUrl(txHash: string): string | null {
   return base ? `${base}/tx/${txHash}` : null;
 }
 
-// Identity comes from the chain registry, not literals. This module hardcoded
-// both the label AND the native currency, so on a Flare instance every log line
-// said "Mantle Sepolia" and every amount was quoted in MNT.
-const sentinelChain = defineChain({
-  id: SENTINEL_CHAIN_ID,
-  name: sentinelChainInfo().name,
-  nativeCurrency: sentinelChainInfo().nativeCurrency,
-  rpcUrls: { default: { http: [SENTINEL_RPC] } },
-});
+// LAZY, for the reason spelled out in attestor.ts: sentinelRpcUrl() throws for a
+// chain with no configured endpoint, and this module is on the import path of
+// every read-only script via services/sentinel.ts. Resolving at load turned a
+// write-path safety check into an import-time crash for scripts that never write.
+let _rpc: string | null = null;
+function sentinelRpc(): string {
+  return (_rpc ??= sentinelRpcUrl());
+}
+/** Identity comes from the chain registry, not literals. This module hardcoded
+ *  both the label AND the native currency, so on a Flare instance every log line
+ *  said "Mantle Sepolia" and every amount was quoted in MNT. */
+function buildChain() {
+  return defineChain({
+    id: SENTINEL_CHAIN_ID,
+    name: sentinelChainInfo().name,
+    nativeCurrency: sentinelChainInfo().nativeCurrency,
+    rpcUrls: { default: { http: [sentinelRpc()] } },
+  });
+}
+// See attestor.ts: typed from buildChain, not from defineChain, or viem loses the
+// literal chain type and every writeContract call demands an explicit `chain`.
+let _chain: ReturnType<typeof buildChain> | null = null;
+function sentinelChainObj(): ReturnType<typeof buildChain> {
+  return (_chain ??= buildChain());
+}
 
 function account() {
   const pk = process.env.SENTINEL_PRIVATE_KEY;
@@ -95,15 +115,16 @@ async function fireOnChainAlert(
   verdictURI: string
 ): Promise<string> {
   const acct = account();
-  const wallet = createWalletClient({ account: acct, chain: sentinelChain, transport: http(SENTINEL_RPC) });
-  const pub = createPublicClient({ chain: sentinelChain, transport: http(SENTINEL_RPC) });
+  const chain = sentinelChainObj();
+  const wallet = createWalletClient({ account: acct, chain, transport: http(sentinelRpc()) });
+  const pub = createPublicClient({ chain, transport: http(sentinelRpc()) });
 
   const txHash = await wallet.writeContract({
     address: alertBusAddress(),
     abi: ALERTBUS_ABI,
     functionName: "alert",
     args: [getAddress(oft), watchedChainId, getAddress(recipient), score, RISK_ENUM[risk], AGENT_ID, verdictURI],
-    value: parseEther(NUDGE_MNT),
+    value: parseEther(NUDGE_NATIVE),
   });
   await pub.waitForTransactionReceipt({ hash: txHash });
   return txHash;
@@ -217,9 +238,31 @@ function postX(text: string): void {
 
 /**
  * Tiered escalation. AT_RISK → on-chain AlertBus + Telegram (private). CRITICAL →
- * also a public X post. The OFT owner receives the dust MNT nudge so the warning
- * shows up in their wallet activity. Recipient falls back to the Sentinel signer
- * when the owner can't be resolved (the contract requires a non-zero recipient).
+ * also a public X post. The OFT owner receives a dust nudge in the sentinel chain's
+ * native unit so the warning shows up in their wallet activity. Recipient falls back
+ * to the Sentinel signer when the owner can't be resolved (the contract requires a
+ * non-zero recipient).
+ *
+ * WHICH LEGS REPEAT, exactly — do not summarise this as "repeats are quiet",
+ * because two of the four are not:
+ *
+ *   AlertBus write + gas   FIRST FIRE ONLY  (guarded, see the isRepeat branch)
+ *   owner dust nudge       FIRST FIRE ONLY  (same branch — it rides the AlertBus tx)
+ *   X post                 FIRST FIRE ONLY  (guarded at the foot of this function)
+ *   Telegram, both chats   EVERY REPEAT     ← by design: reminding IS the feature
+ *
+ * The two guarded legs cost money or dust a third party's wallet. Telegram costs
+ * nothing and is the entire point of a re-ping, so it is deliberately unguarded
+ * and a persistent CRITICAL does reach the configured chats on every cadence tick.
+ * If that cadence is unwanted for the PUBLIC chat specifically, the lever is
+ * TELEGRAM_PUBLIC_ALERT_CHAT_ID or REPING_CRITICAL_MINUTES, not a change here —
+ * and it is a product decision, not a bug.
+ *
+ * ⚠️ An earlier version of this comment claimed "EVERY outward leg is first-fire
+ * only". That was false in the way that matters: postX is a console.log mock
+ * (see above), so guarding it changed nothing observable, while the leg that
+ * actually reaches humans on a 12-hour loop is the Telegram one and it is not
+ * guarded. Stating it wrongly made a real, deliberate behaviour look accidental.
  */
 export async function dispatchAlert(
   v: SentinelVerdict,
@@ -259,13 +302,27 @@ export async function dispatchAlert(
     const url = sentinelTxUrl(h);
     return url ? link(h.slice(0, 10) + "…", url) : code(h);
   };
-  const txLine = alertTxHash ? `AlertBus: ${hashRef(alertTxHash)}` : "AlertBus: not sent";
-  // "unavailable" implied a transient outage. An absent hash means no attestation
-  // was written — which is also the correct, expected state when the scope gate
-  // refuses an asset — so state that, and do not imply a cause.
+  // On a REPEAT both hashes are absent BY DESIGN — the orchestrator skips attest()
+  // and this function skips fireOnChainAlert — so the absent-hash branch would say
+  // "not sent" / "not written" about a finding whose first fire may well have
+  // written both. That is the opposite of the truth, in the one message whose whole
+  // job is to point at an existing record.
+  //
+  // It cannot say "sent on the first alert" either: on this instance
+  // ALERT_BUS_ADDRESS is unset, so that leg has never run for any asset, and a
+  // reminder claiming an AlertBus write would invent one. The only statement true
+  // in every case is that this cycle wrote nothing and is not the cycle to read
+  // hashes from.
+  const NOT_THIS_CYCLE = "not re-sent (reminder — see the first alert for this finding)";
+  const txLine = alertTxHash
+    ? `AlertBus: ${hashRef(alertTxHash)}`
+    : opts.isRepeat ? `AlertBus: ${NOT_THIS_CYCLE}` : "AlertBus: not sent";
+  // "unavailable" implied a transient outage. On a FIRST fire an absent hash means
+  // no attestation was written — which is also the correct, expected state when the
+  // scope gate refuses an asset — so state that, and do not imply a cause.
   const attestationLine = v.attestTxHash
     ? `Attestation: ${hashRef(v.attestTxHash)}`
-    : "Attestation: not written";
+    : opts.isRepeat ? `Attestation: ${NOT_THIS_CYCLE}` : "Attestation: not written";
   const reasons = esc(v.reasons.length ? v.reasons.join("; ") : v.verdict);
   const ticker = esc(v.ticker);
   const emoji = v.riskLevel === "CRITICAL" ? "🚨" : "⚠️";
@@ -290,14 +347,17 @@ export async function dispatchAlert(
     ``,
     DIV,
     `🔗 <b>On-chain</b>`,
+    // Same correction as txLine/attestationLine above. The X post is first-fire
+    // only now, but THIS message is Telegram and a re-ping is exactly when it goes
+    // out, so the repeat wording has to be right here too.
     `${link("OFT ↗", oftExplorerUrl(v.chainId, v.oft))}  ·  ${
       v.attestTxHash
         ? (sentinelTxUrl(v.attestTxHash) ? link("Attestation ↗", sentinelTxUrl(v.attestTxHash)!) : code(v.attestTxHash))
-        : "Attestation not written"
+        : opts.isRepeat ? "Attestation not re-written (reminder)" : "Attestation not written"
     }`,
     alertTxHash
       ? (sentinelTxUrl(alertTxHash) ? link("AlertBus ↗", sentinelTxUrl(alertTxHash)!) : code(alertTxHash))
-      : "AlertBus not sent",
+      : opts.isRepeat ? "AlertBus not re-sent (reminder)" : "AlertBus not sent",
     ``,
     DIV,
     `🛠 <b>Remediation</b>`,
@@ -343,7 +403,23 @@ export async function dispatchAlert(
   }
   await Promise.all(sends);
 
-  if (v.riskLevel === "CRITICAL") {
+  // FIRST FIRE ONLY. A persistent CRITICAL re-pings every REPING_CRITICAL_MINUTES
+  // (12h by default) and never stops while it stays unfixed, so an unguarded post
+  // here is not "one alert": it is the same sentence about the same unchanged
+  // config, twice a day, for as long as the config stays that way. A feed that
+  // repeats itself teaches readers to ignore it, which costs the NEXT finding its
+  // audience.
+  //
+  // Nothing becomes private. The escalation is unchanged and a NEW critical still
+  // posts; only the reminder is silent, and a reminder was never news.
+  //
+  // Honest scope: postX is mocked to console.log today, so this guard is a
+  // correctness fix for a path that is not yet live rather than a change anyone
+  // can observe. It matters when the mock is replaced, and it is cheaper to be
+  // right now than to remember later. The leg that DOES reach people on every
+  // tick is Telegram, and that one is deliberately unguarded — see the table in
+  // this function's docstring.
+  if (v.riskLevel === "CRITICAL" && !opts.isRepeat) {
     postX(`🚨 ${v.ticker} OFT ${v.riskLevel}: ${findingPhrase(v)} (score ${v.score}/100). ${v.reasons[0] ?? ""} Flagged by OFT Sentinel, ${attestationPhrase(v)}.`);
   }
 

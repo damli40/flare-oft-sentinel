@@ -62,8 +62,15 @@ const REPO_URL = "https://github.com/damli40/flare-oft-sentinel";
 
 // The OFT we deployed ourselves for the detection demo is identified by
 // isDemoAsset() in rail-logic.ts — chain + address, held byte-identical to the
-// backend's ATTEST_PINNED by a test. See the hazard note above DEMO_PINNED: that
-// tie has to be cut now that this instance signs for every asset it watches.
+// backend's WATCH_PINNED by a test.
+//
+// This comment said ATTEST_PINNED, and said the tie "has to be cut". Both were
+// true when written and neither is now: the cut already happened on 2026-08-09,
+// and the check landed on WATCH_PINNED. The distinction is the whole point, so a
+// stale pointer here is worse than none — see the note above isDemoAsset in
+// rail-logic.ts, which explains why ATTEST_PINNED stopped being able to answer
+// "which asset is ours" once signing widened to every watched asset. Anyone
+// re-pinning the demo asset should look in WATCH_PINNED.
 // It used to be a ticker comparison against a literal here, which
 // had already failed once in the other direction ("DEMOFT" matched nothing, so
 // the demo card never rendered). See the note above isDemoAsset for why a ticker

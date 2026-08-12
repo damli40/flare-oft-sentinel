@@ -59,6 +59,83 @@ const findingKey = (f: Finding) => `${f.check}\u0000${f.severity}\u0000${f.detai
 const sortFindings = (fs: Finding[]) =>
   [...fs].sort((a, b) => (findingKey(a) < findingKey(b) ? -1 : findingKey(a) > findingKey(b) ? 1 : 0));
 
+// How much a reading is worth as EVIDENCE. drift.ts sets this per finding: a check
+// answered from the enforcement boundary itself is "observed"; one answered by
+// reasoning from the near side because the far side would not read is "inferred".
+const EVIDENCE_RANK: Record<Finding["evidence"], number> = {
+  observed: 2,
+  inferred: 1,
+  unverifiable: 0,
+};
+
+const strongest = (fs: Finding[]) => Math.max(...fs.map((f) => EVIDENCE_RANK[f.evidence]));
+
+// Severity ordering, worst first. Used for ONE thing: making sure the evidence
+// rule below can never hide an escalation.
+const SEVERITY_RANK: Record<Finding["severity"], number> = {
+  CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, UNKNOWN: 1, PASS: 0,
+};
+const worst = (fs: Finding[]) => Math.max(...fs.map((f) => SEVERITY_RANK[f.severity]));
+
+/**
+ * Per check, keep the reading taken with the STRONGEST evidence. Ties go to the
+ * current cycle, because a fresh reading of equal quality is the better one.
+ *
+ * THIS IS THE FIX FOR THE RE-SIGN FLAPPING, and it is deliberately here rather
+ * than in the fingerprint. When a destination's receive config will not read,
+ * drift.ts does not go quiet — it falls back to the send side, marks the finding
+ * `inferred`, and SAYS SO IN THE TEXT: the quorum note becomes "receive config
+ * unreadable — send side used as a proxy", and the DVN names now resolve on the
+ * source chain, so the names themselves differ. Same config, same severity,
+ * different sentence.
+ *
+ * The corridor still counts as "readable" for the carry-forward above, because
+ * that tests the SEND-side uln and the send side read fine. So the degraded
+ * reading replaced the good one, the hash moved, and the asset re-signed. DINERO
+ * collected seven records in two days that way, every one an identical
+ * 10/CRITICAL, two of them three minutes apart, and `total()` reached 18.
+ *
+ * Refusing the downgrade fixes it at the source and costs nothing elsewhere: an
+ * observed→observed change still moves the hash, so a receive-side DVN swap, a
+ * delivery state turning from "unused" to "stranded", or a proxy-admin transfer
+ * between two EOAs are all still caught in full detail.
+ *
+ * The one thing it cannot do is notice a change on a corridor whose far side has
+ * NEVER read. That is honest rather than unfortunate: this system attests to what
+ * it can see, and it has never been able to see that corridor.
+ */
+function bestEvidencePerCheck(current: Finding[], carried: Finding[]): Finding[] {
+  const byCheck = (fs: Finding[]) => {
+    const m = new Map<string, Finding[]>();
+    for (const f of fs) {
+      const bucket = m.get(f.check);
+      bucket ? bucket.push(f) : m.set(f.check, [f]);
+    }
+    return m;
+  };
+  const before = byCheck(carried);
+  const out: Finding[] = [];
+  // Only checks the CURRENT reading still produces survive. A check that stopped
+  // firing on a readable corridor genuinely stopped, and that is a change worth
+  // recording — this must not become a ratchet that never lets a finding clear.
+  for (const [check, now] of byCheck(current)) {
+    const prior = before.get(check);
+    // Keep the prior reading only when it is BOTH better evidenced AND not less
+    // severe than what we just read.
+    //
+    // The severity half is not defensive padding, it closes a hole the evidence
+    // rule opens on its own: a cycle where the far side degrades AND the check
+    // escalates arrives as `inferred CRITICAL` against a stored `observed
+    // MEDIUM`. On evidence alone the MEDIUM wins and the escalation is silently
+    // dropped — the exact failure this whole mechanism exists to prevent. A worse
+    // reading is always worth surfacing, however weakly it is evidenced; a milder
+    // one on weaker evidence is the flap, and gets refused.
+    const keepPrior = prior && strongest(prior) > strongest(now) && worst(now) <= worst(prior);
+    out.push(...(keepPrior ? prior : now));
+  }
+  return out;
+}
+
 /**
  * Merge this cycle's findings over the last-fired per-corridor state.
  *  - readable corridor (route present, active, ULN read succeeded): current findings
@@ -88,23 +165,52 @@ export function mergeWeakFindings(
 
   const merged: WeakAlertCorridors = {};
   for (const c of new Set([...Object.keys(last ?? {}), ...Object.keys(current), ...readable])) {
+    const carried = last?.[c] ?? [];
     if (readable.has(c)) {
-      merged[c] = current[c] ?? [];
+      merged[c] = bestEvidencePerCheck(current[c] ?? [], carried);
       continue;
     }
-    const carried = last?.[c] ?? [];
-    const fresh = (current[c] ?? []).filter((f) => !carried.some((k) => findingKey(k) === findingKey(f)));
-    merged[c] = [...carried, ...fresh];
+    // Corridor not readable at all this cycle: carry the last-known findings and
+    // union anything the partial read still produced. Deduped by CHECK rather
+    // than by full text, or the same check worded differently on a degraded read
+    // gets appended alongside its own earlier wording and the stored state grows
+    // on every flake.
+    const seen = new Set(carried.map((f) => f.check));
+    merged[c] = [...carried, ...(current[c] ?? []).filter((f) => !seen.has(f.check))];
   }
   return merged;
 }
 
-/** Canonical hash of the merged per-corridor state: corridors and findings sorted. */
+/**
+ * Canonical hash of the merged per-corridor state: corridors and findings sorted,
+ * hashed IN FULL — check, severity and detail text.
+ *
+ * ⚠️ Do not "fix" the flapping by dropping `detail` from this hash. That was tried
+ * on 2026-08-12 and reverted the same day, because it opens a hole on the exact
+ * threat this project exists to catch:
+ *
+ *   detectDrift (drift.ts) compares the SEND-side uln, the two library-default
+ *   booleans and rpcConflict. It never reads receiveUln, and it never compares
+ *   peers. So a receive-side DVN swap at an UNCHANGED COUNT — [A,B] -> [A,EVIL],
+ *   an owner-key attacker substituting their own verifier at the enforcement
+ *   boundary — produces no drift at all. Its only signature anywhere in the
+ *   system is the DVN names inside this finding's detail text. Hash check and
+ *   severity alone and that attack is silent forever.
+ *
+ *   Same shape for two more: the delivery state moving from "no funds exposed
+ *   yet" to "value is observably stranded" keeps its severity and changes only
+ *   the note, and a proxy-admin transfer between two EOAs lives only in the
+ *   owner fragment of the detail string.
+ *
+ * The flapping is real and is fixed in mergeWeakFindings instead, by refusing to
+ * let a DEGRADED reading overwrite a good one. That kills the noise without
+ * blinding the hash. See the evidence note there.
+ */
 export function weakCorridorsFingerprint(corridors: WeakAlertCorridors): string {
   const canonical = Object.keys(corridors)
     .sort()
     .map((c) => ({ corridor: c, findings: sortFindings(corridors[c]) }));
-  return verdictHash({ kind: "weak-config-v2", corridors: canonical, rulesVersion: RULES_VERSION });
+  return verdictHash({ kind: "weak-config-v3", corridors: canonical, rulesVersion: RULES_VERSION });
 }
 
 // How long an UNCHANGED finding stays quiet before it is worth saying again.
@@ -115,17 +221,65 @@ export function weakCorridorsFingerprint(corridors: WeakAlertCorridors): string 
 //
 // Env-overridable in minutes so an operator can tune the cadence without a
 // deploy, and so tests do not have to wait twelve hours.
-const REPEAT_AFTER_MS: Record<string, number> = {
-  CRITICAL: Number(process.env.REPING_CRITICAL_MINUTES ?? 12 * 60) * 60_000,
-  AT_RISK: Number(process.env.REPING_AT_RISK_MINUTES ?? 7 * 24 * 60) * 60_000,
+//
+// Read at CALL time, not at module load. Every other env read in this instance
+// moved to call-time for the same reason: a value captured at import cannot be
+// changed by the operator route that exists to change it, so pairing a cadence
+// change with a reset needed a redeploy.
+const REPEAT_DEFAULT_MINUTES: Record<string, number> = {
+  CRITICAL: 12 * 60,
+  AT_RISK: 7 * 24 * 60,
 };
+
+/** Minutes for a level, from env when the operator set something usable.
+ *  Returns null to mean "this level never re-pings".
+ *
+ *  Three cases, and the difference between the last two is the whole point:
+ *
+ *   unset or ""   → the default. Silent, because that is not a decision.
+ *   0 or negative → OFF. An explicit, honoured mute.
+ *   unparseable   → the default, WITH a warning. A typo is not a decision either.
+ *
+ *  The bug being fixed: Number("12h") is NaN, NaN * 60_000 is NaN, and the old
+ *  `!every` guard treated NaN as falsy — so `REPING_CRITICAL_MINUTES=12h`
+ *  silently disabled re-pings entirely and logged nothing. Silence is the worst
+ *  possible response to a cadence the operator was actively trying to set.
+ *
+ *  Why 0 still means off, rather than falling back to the default like the typo
+ *  case: under the old code 0, negative and NaN ALL disabled re-pings, so an
+ *  operator may have set 0 as a mute and it worked. Treating it as "unusable"
+ *  would silently un-mute them on the next deploy — trading one silent surprise
+ *  for another. A typo cannot be honoured because there is no sane reading of it;
+ *  a zero can be, so it is. (The documented kill switch is still ALERTS_DISABLED,
+ *  which mutes everything rather than one band.) */
+function repeatAfterMs(riskLevel: string): number | null {
+  const fallback = REPEAT_DEFAULT_MINUTES[riskLevel];
+  if (fallback === undefined) return null; // no cadence for this level (e.g. PASS)
+  const envKey = riskLevel === "CRITICAL" ? "REPING_CRITICAL_MINUTES" : "REPING_AT_RISK_MINUTES";
+  const raw = process.env[envKey];
+  if (raw === undefined || raw.trim() === "") return fallback * 60_000;
+  const minutes = Number(raw);
+  if (!Number.isFinite(minutes)) {
+    console.warn(
+      `[orchestrator] ${envKey}="${raw}" is not a number of minutes — ignoring it and using the ` +
+        `${fallback}-minute default. Set a plain integer (e.g. ${fallback}), or 0 to stop ` +
+        `${riskLevel} re-pings entirely.`,
+    );
+    return fallback * 60_000;
+  }
+  if (minutes <= 0) {
+    console.warn(`[orchestrator] ${envKey}="${raw}" — ${riskLevel} re-pings are OFF.`);
+    return null;
+  }
+  return minutes * 60_000;
+}
 
 /** Is an unchanged finding at this risk level due to be said again? */
 export function dueForRepeat(riskLevel: string, firedAt: number | null, now = Date.now()): boolean {
-  const every = REPEAT_AFTER_MS[riskLevel];
+  const every = repeatAfterMs(riskLevel);
   // No cadence for this level, or no record of ever having fired, means the
   // repeat path is not the one that should handle it.
-  if (!every || every <= 0 || firedAt == null) return false;
+  if (every == null || firedAt == null) return false;
   return now - firedAt >= every;
 }
 
@@ -155,6 +309,22 @@ export async function produceWeakConfigAttestation(
   //                      every cycle would fill the registry with duplicates
   //                      that say nothing and cost gas to say it.
   //   unchanged, quiet → return, as before.
+  // Compare the STORED HASH STRING, not a re-hash of the stored state.
+  //
+  // Re-hashing the old state under today's scheme was tried on 2026-08-12, to skip
+  // the one-off re-sign that the v2 -> v3 rename forces. It was reverted within the
+  // hour: computing both sides in the same process cancels `kind` AND
+  // `rulesVersion` out by construction, which silently destroys the only mechanism
+  // that refreshes a stale score in the registry after a rules release. Precedent
+  // is rules 5.0.0 itself — identical findings, different scores. Under the re-hash
+  // every asset would have kept its 4.1.0 score on-chain forever, because the
+  // findings never moved.
+  //
+  // So the version string is load-bearing and the compare stays a string compare.
+  // The cost is one re-sign per asset on the deploy that changes the scheme, which
+  // is correct rather than wasteful: the definition of "changed" changed, so every
+  // asset re-baselines once and the new record is the first one written under the
+  // new rules.
   const stored = getWeakAlertFingerprint(watched.address, watched.chainId);
   const unchanged = stored === fingerprint;
   const firedAt = getWeakAlertFiredAt(watched.address, watched.chainId);

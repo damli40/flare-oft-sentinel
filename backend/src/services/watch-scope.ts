@@ -96,21 +96,40 @@ export function attestScopeMode(): AttestScopeMode {
  * Requirement 3 — an asset may be attested only if it is also watched. The live
  * watch list is async (Dune) and can be degraded, so gating a safety check on it
  * would make the gate fail open exactly when the fleet is least readable. What IS
- * statically knowable is the chain scope: an ATTEST_PINNED entry on a chain
- * outside WATCH_CHAINS can never be read by this instance, so signing a verdict
- * about it would be attesting something we never measured. Those entries are
- * FILTERED OUT (never attestable) and logged at error level — filtered rather
- * than thrown, because attestInScope is called from inside the verdict pipeline's
- * try/catch, where a throw would be swallowed into a generic "attest failed" and
- * lose the reason. Dropping the entry fails closed AND keeps the diagnosis.
+ * statically knowable is whether this instance can read the asset at all, and
+ * there are TWO ways it can:
+ *
+ *   1. the asset's chain is in WATCH_CHAINS, or
+ *   2. the asset is itself in WATCH_PINNED.
+ *
+ * Case 2 is not a technicality. sentinel.ts:122 states that WATCH_PINNED
+ * "bypasses chainAllowed" on purpose, so a pinned asset on an off-list chain IS
+ * polled and scored. This filter used to test case 1 only and reject everything
+ * else with "this instance never reads it" — a sentence that became false the
+ * moment pins started bypassing the chain check. The effect was the bad kind of
+ * wrong: the asset was watched and scored, could never be attested, and the
+ * error blamed a chain scope that was not the reason.
+ *
+ * Entries failing BOTH tests are FILTERED OUT (never attestable) and logged at
+ * error level — filtered rather than thrown, because attestInScope is called
+ * from inside the verdict pipeline's try/catch, where a throw would be swallowed
+ * into a generic "attest failed" and lose the reason. Dropping the entry fails
+ * closed AND keeps the diagnosis.
  */
 export function attestPinnedAssets(): PinnedAsset[] {
+  // Same identity key sentinel.ts dedupes pins by, lowercased so a checksummed
+  // ATTEST_PINNED entry still matches its lowercase WATCH_PINNED twin.
+  const watchPinned = new Set(
+    pinnedAssets().map((p) => `${p.chainKey}:${p.address.toLowerCase()}`),
+  );
   return parsePins(process.env.ATTEST_PINNED, "ATTEST_PINNED").filter((p) => {
     if (chainAllowed(p.chainKey)) return true;
+    if (watchPinned.has(`${p.chainKey}:${p.address.toLowerCase()}`)) return true;
     console.error(
       `[watch-scope] ATTEST_PINNED entry "${p.chainKey}:${p.address}:${p.ticker}" is on a chain outside ` +
-        `WATCH_CHAINS="${process.env.WATCH_CHAINS ?? ""}" — this instance never reads it, so it is NOT attestable. ` +
-        `Fix the config: an asset may only be attested if it is also watched.`,
+        `WATCH_CHAINS="${process.env.WATCH_CHAINS ?? ""}" and is not in WATCH_PINNED either, so this ` +
+        `instance never reads it and it is NOT attestable. Fix the config: an asset may only be ` +
+        `attested if it is also watched — add its chain to WATCH_CHAINS, or add the asset to WATCH_PINNED.`,
     );
     return false;
   });
