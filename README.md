@@ -244,12 +244,21 @@ replaced the good one in the stored state, the fingerprint moved, and the asset
 signed again. One asset collected seven records in two days that way, every one
 recording an identical 10/100 CRITICAL, two of them three minutes apart.
 
-The fix is that **a weaker reading no longer overwrites a stronger one.** For a
-given check on a given corridor, an `inferred` result is not allowed to displace
-an `observed` one, so a far-side RPC failure stops looking like a config change.
-One exception, and it matters: if the weaker reading is *more severe*, it wins
-anyway. Hiding a possible escalation because the evidence got thin is the failure
-this whole mechanism exists to prevent.
+The fix is that the sentinel now asks **both sides of a corridor whether they
+answered** before it treats a reading as trustworthy. Half of what the engine says
+about a corridor is read on the *destination* chain, and the old test only asked
+about the source. When either side is silent the last known findings are carried
+forward instead of being replaced, so a failed read stops looking like a config
+change. A degraded cycle may still ADD a finding, or ESCALATE one — a bad read must
+never hide something getting worse.
+
+We tried two tidier versions first and both were wrong, which is worth saying
+because the wrong ones look more elegant. Hashing only the check and its severity
+would have made a receive-side verifier swap invisible. Preferring whichever
+reading carried the stronger evidence label failed on the very shape this product
+headlines, and worse, it froze legitimate fixes out of the record: a team that
+moved its owner key into custody produces a *weaker* reading, so its improvement
+would never have been attested.
 
 **What the fix deliberately did NOT do is simplify the fingerprint.** It still
 hashes each finding in full, including its text, and it has to: drift detection
@@ -716,7 +725,7 @@ npm install
 npx vitest run
 ```
 
-> Measured when this repository was exported: **759 tests across 36 files**, all passing. If your run differs, that is a finding worth an issue.
+> Measured when this repository was exported: **807 tests across 36 files**, all passing. If your run differs, that is a finding worth an issue.
 
 These tests are the specification. They pin the rule behaviour with fixture
 snapshots and a fake RPC. No keys, no chain access, and no RPC call.

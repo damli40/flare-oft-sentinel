@@ -1,4 +1,4 @@
-import type { OftSnapshot, WatchedOft, SentinelVerdict, Finding, RiskLevel, TransactionIntent, PolicyDecisionRecord } from "../types.js";
+import type { OftSnapshot, RouteSnapshot, WatchedOft, SentinelVerdict, Finding, RiskLevel, TransactionIntent, PolicyDecisionRecord } from "../types.js";
 import { detectDrift, assessSnapshot, RULES_VERSION } from "./drift.js";
 import { verdictHash, attest, attestInScope } from "./attestor.js";
 import { dispatchAlert } from "./alerts.js";
@@ -27,9 +27,10 @@ async function buildPdr(
 
 // Identity of a weak-config alert: the findings that would be disclosed, not the
 // moment they were computed. The full verdictHash can't dedupe here — the PDR pins
-// evaluatedAt, so every cycle would look "new".
+// evaluatedAt, so every cycle would look "new". Every time this identity moves, the
+// asset buys a PAID mainnet attestation, so a false move is a real bill.
 //
-// Two dedup-defeating instabilities, both born of concurrent RPC reads:
+// Four dedup-defeating instabilities, all born of concurrent RPC reads:
 //  1. ORDER (fixed 2026-07-15): set-equal findings arrive reordered between polls —
 //     hash a sorted copy.
 //  2. SET (observed live 2026-07-17): per-corridor/per-field reads fail
@@ -40,6 +41,26 @@ async function buildPdr(
 //     before hashing, so a failed read is never mistaken for a config change.
 //     Identity excludes score/risk: both derive from the (possibly partial)
 //     finding set and would reintroduce the flicker.
+//  3. HALF-READ (observed live 2026-08-11, rule rewritten 2026-08-12): (2) asked
+//     only whether the NEAR side read. Half of what the engine says about a corridor
+//     is read on the DESTINATION chain, and when that half fails the engine does not
+//     go quiet — it re-words the finding from the send side, and five checks stop
+//     firing altogether because they need a far-side read to exist. Both look like a
+//     config change to a hash over full detail. One asset took seven records in two
+//     days that way, every one an identical 10/CRITICAL. Fix: mergeWeakFindings now
+//     asks BOTH sides (see there).
+//  4. SENTINELS AND THE REST OF THE FAR SIDE (proved by adversarial probe against (3),
+//     and present in every version before it too — these are holes (3) did not close,
+//     not damage it did):
+//       · a read-failure finding — severity UNKNOWN, meaning "we could not evaluate" —
+//         was admitted into the identity, so a flake alone moved the hash and moved it
+//         back. Fix: withoutUnknown, below.
+//       · (3) took `receiveUln` as the whole far side. It is not: the reverse peer and
+//         the delivered nonce are separately failable destination reads, and losing
+//         either re-words or DELETES a finding while the corridor still looks read.
+//         Fix: farSideAnswered, below, scoped per check.
+//     Two further reads are still unwitnessed and are accepted, not fixed — see
+//     "WHAT THE WITNESS COVERS, AND WHAT IT DOES NOT" on mergeWeakFindings.
 export type WeakAlertCorridors = Record<string, Finding[]>;
 
 const GLOBAL_CORRIDOR = "global";
@@ -59,92 +80,248 @@ const findingKey = (f: Finding) => `${f.check}\u0000${f.severity}\u0000${f.detai
 const sortFindings = (fs: Finding[]) =>
   [...fs].sort((a, b) => (findingKey(a) < findingKey(b) ? -1 : findingKey(a) > findingKey(b) ? 1 : 0));
 
-// How much a reading is worth as EVIDENCE. drift.ts sets this per finding: a check
-// answered from the enforcement boundary itself is "observed"; one answered by
-// reasoning from the near side because the far side would not read is "inferred".
-const EVIDENCE_RANK: Record<Finding["evidence"], number> = {
-  observed: 2,
-  inferred: 1,
-  unverifiable: 0,
-};
-
-const strongest = (fs: Finding[]) => Math.max(...fs.map((f) => EVIDENCE_RANK[f.evidence]));
-
-// Severity ordering, worst first. Used for ONE thing: making sure the evidence
-// rule below can never hide an escalation.
+// Severity ordering, worst first. Used for ONE thing: the escalation escape hatch
+// in mergeWeakFindings, so carrying a corridor forward can never hide a worse reading.
 const SEVERITY_RANK: Record<Finding["severity"], number> = {
   CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, UNKNOWN: 1, PASS: 0,
 };
-const worst = (fs: Finding[]) => Math.max(...fs.map((f) => SEVERITY_RANK[f.severity]));
+/** Rank of the worst finding in a set. -1 for an empty set — below PASS, so an empty
+ *  set never out-ranks anything. In practice it is only ever called on a non-empty
+ *  per-check bucket; "a check we had nothing for at all" is handled separately, by
+ *  admitting it outright. */
+const worst = (fs: Finding[]) => fs.reduce((m, f) => Math.max(m, SEVERITY_RANK[f.severity]), -1);
 
 /**
- * Per check, keep the reading taken with the STRONGEST evidence. Ties go to the
- * current cycle, because a fresh reading of equal quality is the better one.
+ * Drop the read-failure sentinels.
  *
- * THIS IS THE FIX FOR THE RE-SIGN FLAPPING, and it is deliberately here rather
- * than in the fingerprint. When a destination's receive config will not read,
- * drift.ts does not go quiet — it falls back to the send side, marks the finding
- * `inferred`, and SAYS SO IN THE TEXT: the quorum note becomes "receive config
- * unreadable — send side used as a proxy", and the DVN names now resolve on the
- * source chain, so the names themselves differ. Same config, same severity,
- * different sentence.
+ * UNKNOWN does not mean "nothing wrong". It means "we could not evaluate this" — the
+ * one thing that must never be attested as a change. drift.ts emits it from two places
+ * today and neither is a security reading:
  *
- * The corridor still counts as "readable" for the carry-forward above, because
- * that tests the SEND-side uln and the send side read fine. So the degraded
- * reading replaced the good one, the hash moved, and the asset re-signed. DINERO
- * collected seven records in two days that way, every one an identical
- * 10/CRITICAL, two of them three minutes apart, and `total()` reached 18.
+ *   ULN Unreadable        (drift.ts:547-552) — the near-side ULN read failed.
+ *   Proxy Upgrade Control (drift.ts:1100-1105) — the proxy admin's bytecode read failed.
  *
- * Refusing the downgrade fixes it at the source and costs nothing elsewhere: an
- * observed→observed change still moves the hash, so a receive-side DVN swap, a
- * delivery state turning from "unused" to "stranded", or a proxy-admin transfer
- * between two EOAs are all still caught in full detail.
+ * Both are deliberately unscored there (they deduct nothing, drift.ts:544-546), and both
+ * were nonetheless landing in the paid identity: the union's not-carried branch admits
+ * any check nothing is carried under, so a clean corridor went [] → ["ULN Unreadable"]
+ * on a flake and back to [] on recovery. Two mainnet writes per flake episode, bought
+ * with an RPC hiccup that told us nothing.
  *
- * The one thing it cannot do is notice a change on a corridor whose far side has
- * NEVER read. That is honest rather than unfortunate: this system attests to what
- * it can see, and it has never been able to see that corridor.
+ * Filtered by SEVERITY CLASS, never by check name — there are already two sentinels and
+ * a third costs one line in drift.ts. Nothing else is filtered: PASS means "evaluated,
+ * and it is fine", which is a real reading and belongs in the record.
  */
-function bestEvidencePerCheck(current: Finding[], carried: Finding[]): Finding[] {
-  const byCheck = (fs: Finding[]) => {
-    const m = new Map<string, Finding[]>();
-    for (const f of fs) {
-      const bucket = m.get(f.check);
-      bucket ? bucket.push(f) : m.set(f.check, [f]);
-    }
-    return m;
-  };
-  const before = byCheck(carried);
-  const out: Finding[] = [];
-  // Only checks the CURRENT reading still produces survive. A check that stopped
-  // firing on a readable corridor genuinely stopped, and that is a change worth
-  // recording — this must not become a ratchet that never lets a finding clear.
-  for (const [check, now] of byCheck(current)) {
-    const prior = before.get(check);
-    // Keep the prior reading only when it is BOTH better evidenced AND not less
-    // severe than what we just read.
-    //
-    // The severity half is not defensive padding, it closes a hole the evidence
-    // rule opens on its own: a cycle where the far side degrades AND the check
-    // escalates arrives as `inferred CRITICAL` against a stored `observed
-    // MEDIUM`. On evidence alone the MEDIUM wins and the escalation is silently
-    // dropped — the exact failure this whole mechanism exists to prevent. A worse
-    // reading is always worth surfacing, however weakly it is evidenced; a milder
-    // one on weaker evidence is the flap, and gets refused.
-    const keepPrior = prior && strongest(prior) > strongest(now) && worst(now) <= worst(prior);
-    out.push(...(keepPrior ? prior : now));
-  }
-  return out;
+const withoutUnknown = (fs: Finding[]) => fs.filter((f) => f.severity !== "UNKNOWN");
+
+/**
+ * The four checks whose detail text ENDS in blockClaim's delivery note
+ * (drift.ts:232-277). Every one of them re-words — at an unchanged check and an
+ * unchanged severity — the moment `delivered` goes null, because deliveryState()
+ * collapses to UNKNOWN on exactly that (drift.ts:206).
+ */
+const DELIVERY_NOTED_CHECKS = new Set([
+  "Half-Wired Corridor",         // drift.ts:602
+  "Dead Receive DVN",            // drift.ts:648
+  "Undeliverable Route",         // drift.ts:858
+  "Block Confirmation Mismatch", // drift.ts:982
+]);
+
+/** The one check gated on the destination's reverse-peer read (drift.ts:601). */
+const PEER_GATED_CHECK = "Half-Wired Corridor";
+
+/**
+ * Did the destination answer everything this corridor's findings actually depend on?
+ *
+ * `receiveUln` is the baseline witness and is required always. The other two are
+ * demanded only when a check that MOVES WITH THEM is in play, because both are read
+ * per-corridor and a blanket requirement would make far too many corridors
+ * untrustworthy — and every untrustworthy cycle is a cycle in which a real fix cannot
+ * be recorded.
+ *
+ * @param checksInPlay the `check` names carried for this corridor plus those in the
+ *        current reading. Carried matters as much as current: the bug is a finding
+ *        that DISAPPEARS from the current reading when its gating read fails.
+ */
+function farSideAnswered(route: RouteSnapshot, checksInPlay: Set<string>): boolean {
+  // The receive ULN, read on the destination chain (lz-config.ts:1402).
+  if (route.receiveUln === null) return false;
+
+  // The delivered nonce is NOT part of the destination batch: it is a bare, un-retried
+  // rawCall (lz-config.ts:1277-1286) whose own gating outbound leg is read on the
+  // SOURCE client (lz-config.ts:1270). So it fails independently of receiveUln, and
+  // when it does, all four block-claim checks re-word at an identical severity.
+  if ((route.delivery?.delivered ?? null) === null &&
+      [...checksInPlay].some((c) => DELIVERY_NOTED_CHECKS.has(c))) return false;
+
+  // The reverse peer IS in the destination batch, but as its own sub-call: multicall3
+  // runs allowFailure:true (multicall.ts:137) and the per-call fallback catches to null
+  // (lz-config.ts:1007-1009). When it nulls, drift.ts:601 stops emitting Half-Wired
+  // Corridor and drift.ts:618's `continue` stops suppressing the corridor's other
+  // checks — so a real HIGH silently leaves a paid attestation.
+  if ((route.peerSymmetric ?? null) === null && checksInPlay.has(PEER_GATED_CHECK)) return false;
+
+  return true;
 }
 
 /**
  * Merge this cycle's findings over the last-fired per-corridor state.
- *  - readable corridor (route present, active, ULN read succeeded): current findings
- *    replace last-known, so a genuinely cleaned corridor goes quiet;
- *  - unreadable/absent corridor: last-known findings carry forward, unioned with any
- *    findings the partial read still produced (a library read can succeed while the
- *    ULN read fails; never drop a live finding);
- *  - the global corridor is readable iff the owner reads succeeded this cycle.
- *    (Proxy-admin reads can flake independently; owner is the dominant global signal.)
+ *
+ * ── The rule ──────────────────────────────────────────────────────────────────
+ * A corridor's reading is TRUSTWORTHY this cycle only if BOTH sides answered:
+ *
+ *     nearOk(route) = route.isActive && route.uln !== null   // send side, source chain
+ *     farOk(route)  = route.receiveUln !== null                     // always required
+ *                  && route.delivery.delivered !== null             // IF a block-claim
+ *                                                                   //    check is in play
+ *                  && route.peerSymmetric !== null                  // IF Half-Wired
+ *                                                                   //    Corridor is in play
+ *
+ * "In play" means the check appears in the CARRIED state or in the CURRENT reading.
+ * Carried matters as much as current, because the failure mode is a finding that
+ * VANISHES from the current reading when its gating read fails. The two conditional
+ * legs are deliberately conditional: see farSideAnswered() for what each read is and
+ * why demanding it everywhere would be worse than not demanding it at all.
+ *
+ * UNKNOWN-severity findings are dropped before any of this (see withoutUnknown).
+ *
+ *   both sides read → replace with the current findings. A finding that clears has
+ *                     genuinely cleared, and a custody declaration or a proxy-admin
+ *                     transfer is recorded on the very next cycle.
+ *   otherwise       → carry the last-known findings forward, unioned with any fresh
+ *                     finding whose `check` is not already carried (dedupe by check,
+ *                     never by full text), plus the escape hatch below for anything
+ *                     that ESCALATED while we could not see straight.
+ *
+ * The global corridor (owner / custody / proxy findings) has no far side, so it keeps
+ * its own test: the owner reads succeeded. A destination-chain outage must not freeze
+ * the custody record. (Proxy-admin reads can flake independently; owner is the
+ * dominant global signal.)
+ *
+ * ── Why the SNAPSHOT and not the finding's `evidence` label ───────────────────
+ * The previous attempt (2026-08-12, replaced same day) kept, per check, whichever
+ * reading carried the stronger `evidence` tag. It looked right and was wrong three
+ * separate ways, all confirmed by executed probes:
+ *
+ *  1. It did not fix the headline case. drift.ts:711-716 deliberately keeps the
+ *     send-side fallback `observed` when the sender pays ≤1 DVN — "receive config
+ *     unreadable, but the sender pays only this one DVN — no larger quorum can
+ *     exist" is a proof, not a proxy. So on the 1-of-1 single-verifier asset this
+ *     product headlines, BOTH readings are `observed`: evidence ties, the current
+ *     one wins, the sentence differs, the hash moves. Two paid writes per flake.
+ *  2. Five checks do not degrade, they VANISH, because they cannot fire without a
+ *     far-side read: Block Confirmation Mismatch (drift.ts:981), Dead Receive DVN
+ *     (drift.ts:646), Undeliverable Route and Non-Blocking DVN Mismatch
+ *     (drift.ts:835), Half-Wired Corridor (drift.ts:601). A rule that only walks
+ *     the checks present in the CURRENT reading drops every one of them.
+ *  3. It refused legitimate DOWNGRADES forever. A team files a Fireblocks custody
+ *     declaration and Owner Type becomes `unverifiable` LOW (capped by
+ *     drift.ts:124-139) — strictly weaker evidence than the stored `observed` HIGH,
+ *     so the record never corrected. Same for a real EOA→timelock proxy transfer.
+ *     Refusing to record a fix is worse than the flapping it was meant to stop.
+ *
+ * The snapshot states read quality structurally. The label does not. So ask the
+ * snapshot.
+ *
+ * ── ESCALATION ESCAPE HATCH ───────────────────────────────────────────────────
+ * A degraded cycle may only ADD or ESCALATE a check, never soften, re-word or clear
+ * one. So a fresh finding is admitted when its check is not carried at all, OR when
+ * it is strictly MORE severe than everything carried under that check. A bad read
+ * must never hide an escalation.
+ *
+ * The comparison is PER CHECK, not per corridor, and that granularity is load-bearing.
+ * A corridor-level test ("does this cycle contain anything worse than the corridor's
+ * current worst?") goes blind exactly where it matters most: an unpinned receive
+ * library already puts most corridors at CRITICAL (drift.ts:942-947), so a corridor
+ * losing a DVN mid-outage — DVN Count MEDIUM → the CRITICAL 1-of-1 single-verifier shape, the
+ * headline finding of this product — would not raise the corridor's maximum and would
+ * be silently swallowed. A corridor-level hatch also had to REPLACE the whole corridor
+ * to work, which drops carried findings that this cycle simply could not see and
+ * breaks the older "a partial read must never drop a live finding" guarantee (there is
+ * a test on that, and it is what caught it).
+ *
+ * This is keyed on severity alone, never on evidence. It has a LIVE path today:
+ * Deprecated DVN (drift.ts:767-774) is read entirely on the send side and ships
+ * `observed` CRITICAL, so it can appear mid-outage and outrank a carried MEDIUM.
+ * What is NOT reachable today is an `inferred` CRITICAL — capByEvidence
+ * (drift.ts:124-139) caps every inferred finding at MEDIUM, so that particular
+ * shape cannot arrive from this engine. (The previous version's comment claimed it
+ * could and used it to justify the severity clause; that claim was false. The hatch
+ * is worth keeping anyway as a guard against a future rules change lifting the cap,
+ * which is a different and weaker justification than the one it used to carry.)
+ *
+ * ── KNOWN, ACCEPTED COSTS ─────────────────────────────────────────────────────
+ *  • THE RATCHET. A corridor whose far side NEVER reads keeps its last-known findings,
+ *    so a finding there can never clear. That is honest for an attestation system — we
+ *    cannot confirm what we cannot see — and it is strictly better than paying for
+ *    a mainnet write on every flake. But it is NOT only a per-outage cost, and calling
+ *    it one would be wrong: chain-registry.json ships four chains with ZERO RPCs —
+ *    `arc`, `ault`, `concrete` and `plume`. lz-config.ts:1329 skips the whole
+ *    destination batch when a chain has no RPC, so for corridors INTO those four,
+ *    receiveUln, peerSymmetric and delivered are ALL permanently null. Those corridors
+ *    are far-dark forever, not intermittently, and any finding recorded on one is
+ *    frozen for good.
+ *    The only escape is clearWeakAlerts() (snapshot-store.ts:119), reachable solely via
+ *    the admin route POST /api/sentinel/reset-weak-alerts (routes/sentinel.ts:862). It
+ *    drops EVERY asset's record, so every asset re-alerts and re-attests — a fleet-wide
+ *    paid re-baseline to unstick one corridor. There is no per-asset form of it today.
+ *  • A SEND-side DVN swap during a far-side outage stays suppressed: same `check`,
+ *    no severity change, so neither the union nor the hatch admits it. The proper
+ *    home for catching that is detectDrift's send-side comparison (drift.ts:395-415),
+ *    which today catches a count drop, a confirmation drop and a newly-added
+ *    DEPRECATED DVN — but not a same-count swap to an unrecognised address. Closing
+ *    that gap is a drift.ts change, not a change here.
+ *  • The union dedupes by CHECK, so a SECOND finding of a check already carried
+ *    (two deprecated DVNs on one corridor) waits for a cycle that reads both sides.
+ *    Deduping by full text instead would let the same check, worded differently on
+ *    a degraded read, pile up next to its own earlier wording on every flake.
+ *
+ * ── WHAT THE WITNESS COVERS, AND WHAT IT DOES NOT ─────────────────────────────
+ * A previous version of this note claimed the far-side reads "fail together, because
+ * they fail with the destination RPC", and used that to justify testing `receiveUln`
+ * alone. That claim is structurally false and an adversarial review proved it by
+ * executed probe. Three of the reads it covered are separately failable, and one of
+ * them is not even a destination read. So, precisely:
+ *
+ *   WITNESSED — a failure makes the corridor untrustworthy and the carried state stands:
+ *     · route.uln            near side, source chain, via the retry+fallback chain.
+ *     · route.receiveUln     destination batch (lz-config.ts:1402). Always required.
+ *     · delivery.delivered   destination inboundNonce (lz-config.ts:1277-1286).
+ *                            Required only when a block-claim check is in play.
+ *     · route.peerSymmetric  destination reverse peer (lz-config.ts:1388).
+ *                            Required only when Half-Wired Corridor is in play.
+ *
+ *   NOT WITNESSED — these can fail while the corridor still looks fully read, and the
+ *   resulting move IS attested. Both are accepted here and neither is fixable in this
+ *   function, because in both cases the snapshot field the engine keys on is simply
+ *   absent and this rule has nothing to test:
+ *
+ *     · P3 — SENDABILITY. `sendability` is a SOURCE-side quoteSend walk
+ *       (lz-config.ts:162-176), nothing to do with the destination. A transport failure
+ *       returns UNKNOWN rather than UNSENDABLE, and UNKNOWN deliberately never caps
+ *       (drift.ts:160-164), so the MEDIUM ceiling an UNSENDABLE corridor was sitting
+ *       under is released. CONSEQUENCE: DVN Count flips MEDIUM → CRITICAL with no config
+ *       change, on a corridor this rule calls trustworthy. It is an escalation, so the
+ *       escape hatch admits it by design — a paid write plus a CRITICAL page, bought
+ *       with a failed source-side probe. It flips back when the probe next succeeds:
+ *       a second write. Closing it needs a "the probe failed" flag distinct from
+ *       UNKNOWN, which is a lz-config.ts/drift.ts change.
+ *     · P4 — PROXY ADMIN. `proxyAdmin` comes from a single-shot getStorageAt on the
+ *       EIP-1967 admin slot (lz-config.ts:1423), on the GLOBAL corridor. If that one
+ *       read fails, proxyAdmin stays null, drift.ts:1070 does not fire at all, and the
+ *       global corridor's own witness — the OWNER read — is a DIFFERENT call that
+ *       succeeded, so the corridor is trusted and replaced. CONSEQUENCE: a carried
+ *       Proxy Upgrade Control HIGH silently leaves a paid attestation and returns on
+ *       the next cycle. Two writes, and in between, a record that understates the
+ *       upgrade risk. Closing it needs a per-field global witness.
+ *
+ *   (The receive-side LIBRARY is not on either list: `receiveLibIsDefault` is read on
+ *   the SOURCE endpoint through the resilient retry+fallback path, lz-config.ts:1137
+ *   and 1161-1162. The old note filed it as a destination read; it never was one.)
+ *
+ * Widening the witness to demand every field unconditionally was rejected: it makes a
+ * corridor untrustworthy far more often, and every extra untrustworthy cycle is a cycle
+ * in which a real fix cannot be recorded. Hence the two conditional legs, scoped to the
+ * checks whose text actually moves with the read.
  */
 export function mergeWeakFindings(
   findings: Finding[],
@@ -152,31 +329,67 @@ export function mergeWeakFindings(
   last: WeakAlertCorridors | null,
 ): WeakAlertCorridors {
   const corridorNames = new Set(snapshot.routes.map((r) => r.chainName));
-  const readable = new Set(
-    snapshot.routes.filter((r) => r.isActive && r.uln !== null).map((r) => r.chainName),
-  );
-  if (snapshot.owner !== null && snapshot.ownerIsContract !== null) readable.add(GLOBAL_CORRIDOR);
 
+  // Group first: the far-side witness below is per corridor and needs to know which
+  // checks are in play there. UNKNOWN sentinels are dropped on the way in, so they
+  // reach neither the identity nor the witness.
   const current: WeakAlertCorridors = {};
-  for (const f of findings) {
+  for (const f of withoutUnknown(findings)) {
     const c = findingCorridor(f, corridorNames);
     (current[c] ??= []).push(f);
   }
 
+  const trusted = new Set<string>();
+  for (const route of snapshot.routes) {
+    if (!route.isActive || route.uln === null) continue; // near side did not answer
+    const checksInPlay = new Set<string>([
+      ...withoutUnknown(last?.[route.chainName] ?? []).map((f) => f.check),
+      ...(current[route.chainName] ?? []).map((f) => f.check),
+    ]);
+    if (farSideAnswered(route, checksInPlay)) trusted.add(route.chainName);
+  }
+  // The global corridor (owner / custody / proxy findings) has no far side, so its
+  // witness is the owner read. See P4 above for what that misses.
+  if (snapshot.owner !== null && snapshot.ownerIsContract !== null) trusted.add(GLOBAL_CORRIDOR);
+
   const merged: WeakAlertCorridors = {};
-  for (const c of new Set([...Object.keys(last ?? {}), ...Object.keys(current), ...readable])) {
-    const carried = last?.[c] ?? [];
-    if (readable.has(c)) {
-      merged[c] = bestEvidencePerCheck(current[c] ?? [], carried);
+  for (const c of new Set([...Object.keys(last ?? {}), ...Object.keys(current), ...trusted])) {
+    // Filtered on the way out too, so a sentinel stored by an earlier build leaves the
+    // state on the first cycle after this ships rather than being carried forever.
+    const carried = withoutUnknown(last?.[c] ?? []);
+    const now = current[c] ?? [];
+    if (trusted.has(c)) {
+      merged[c] = [...now];
       continue;
     }
-    // Corridor not readable at all this cycle: carry the last-known findings and
-    // union anything the partial read still produced. Deduped by CHECK rather
-    // than by full text, or the same check worded differently on a degraded read
-    // gets appended alongside its own earlier wording and the stored state grows
-    // on every flake.
-    const seen = new Set(carried.map((f) => f.check));
-    merged[c] = [...carried, ...(current[c] ?? []).filter((f) => !seen.has(f.check))];
+
+    // Half-read or absent corridor. The carried state stands, and this cycle may only
+    // ADD or ESCALATE — never soften, re-word or clear, because we could not see the
+    // far side. Three cases, keyed on CHECK:
+    //
+    //   check not carried at all   → admit it. A partial read still found something
+    //                                (a library read can succeed while the ULN read
+    //                                fails); never drop a live finding.
+    //   strictly MORE severe than  → admit it, replacing that check's carried
+    //     everything carried for      readings. THIS IS THE ESCAPE HATCH: an
+    //     that check                  escalation is never hidden behind a bad read.
+    //   anything else              → keep what is carried. This is the flap.
+    //
+    // Dedupe is by CHECK, never by full text: the same check worded differently on a
+    // degraded read would otherwise pile up next to its own earlier wording on every
+    // flake and grow the stored state without bound.
+    const carriedByCheck = new Map<string, Finding[]>();
+    for (const f of carried) {
+      const bucket = carriedByCheck.get(f.check);
+      bucket ? bucket.push(f) : carriedByCheck.set(f.check, [f]);
+    }
+    const admitted = now.filter((f) => {
+      const prior = carriedByCheck.get(f.check);
+      return !prior || SEVERITY_RANK[f.severity] > worst(prior);
+    });
+    // Only a check that actually escalated displaces its carried readings.
+    const escalated = new Set(admitted.map((f) => f.check).filter((k) => carriedByCheck.has(k)));
+    merged[c] = [...carried.filter((f) => !escalated.has(f.check)), ...admitted];
   }
   return merged;
 }
@@ -203,8 +416,10 @@ export function mergeWeakFindings(
  *   owner fragment of the detail string.
  *
  * The flapping is real and is fixed in mergeWeakFindings instead, by refusing to
- * let a DEGRADED reading overwrite a good one. That kills the noise without
- * blinding the hash. See the evidence note there.
+ * let a HALF-READ cycle overwrite a fully-read one: a corridor is replaced only
+ * when both its send side and its receive side answered. That kills the noise
+ * without blinding the hash — two fully-readable cycles still compare in full
+ * detail, which is exactly what catches the swap above. See the rule note there.
  */
 export function weakCorridorsFingerprint(corridors: WeakAlertCorridors): string {
   const canonical = Object.keys(corridors)

@@ -381,6 +381,10 @@ export function countsLine(findings: number, corridors: number): string {
 export interface PublicRead {
   findings: number;
   corridors: number;
+  /** How many of those findings the engine knows a fix for. A COUNT and nothing
+   *  more — see the pre-flight section at the bottom of this file for why the
+   *  fixes themselves, and what each one is worth, stay on the demo path. */
+  fixable: number;
   structural: StructuralRoute[];
 }
 
@@ -399,10 +403,18 @@ export interface AssetIdentity {
   lastSnapshotAt: number | null;
 }
 
-export function publicRead(reasons: string[], routes: RouteRead[]): PublicRead {
+/** `intents` is handed in WHOLE and leaves as a single integer. That is the point
+ *  of putting the reduction here rather than at the call site: the panel is given
+ *  a number, so the prose on those objects never crosses the boundary at all. */
+export function publicRead(
+  reasons: string[],
+  routes: RouteRead[],
+  intents: IntentRead[] = []
+): PublicRead {
   return {
     findings: reasons.length,
     corridors: routes.length,
+    fixable: intents.length,
     structural: structuralRoutes(routes),
   };
 }
@@ -419,6 +431,160 @@ export function withheldNote(findings: number, corridors: number): string {
   return (
     `${countsLine(findings, corridors)} in the latest read. The findings themselves are ` +
     `withheld here. This page states them in full for the OFT we deployed ourselves, and no other.`
+  );
+}
+
+// ── What a fix would be WORTH, before anyone signs it ─────────────────────────
+//
+// The engine does not stop at "this is wrong". For every finding it knows a fix
+// for, it runs that fix as a DRY RUN: it drops the findings the fix resolves,
+// adds whatever the fixed state introduces in their place, and re-runs the exact
+// same scoring rules that produced the score on the tile. What comes back is a
+// before-and-after score and band — what this rail would read once the fix lands.
+// The backend calls one of those simulations a PRE-FLIGHT.
+//
+// It is the only forward-looking thing on this page. Everything else states what
+// IS, and the rest of this file exists to stop those statements overclaiming. The
+// same discipline applies here, in two specific places:
+//
+//   * A fix that does NOT move the band has to say so. Several do not. The band
+//     is set by the WORST finding on the rail and the band caps the score, so
+//     clearing a HIGH while a CRITICAL still stands can leave both numbers
+//     exactly where they were. A row that renders "10 → 25" and says nothing
+//     invites a reader to add the deltas up and conclude the rail is nearly
+//     fixed. preflightNote() writes the flat cases in words instead.
+//   * An intent served WITHOUT a pre-flight states no numbers at all. The field
+//     is optional on the wire, and a missing simulation must never render as a
+//     zero-delta one — "we did not simulate this" and "this fix is worthless"
+//     are opposite claims.
+//
+// 🚨 DISCLOSURE. Everything in this section except fixableNote() is DEMO-ONLY.
+// An intent's action, its before/after states and its plain-English reason are
+// finding text by any reading. So is the score delta, less obviously: a fix
+// worth +40 names which weakness dominates that rail's score, which is the
+// finding in arithmetic. Third-party assets therefore get the COUNT and nothing
+// else, carried on PublicRead.fixable — the same class of already-published
+// number as the finding count already on every tile.
+
+/** The three bands the AuditRegistry recognises. Written out here rather than
+ *  imported from api.ts for the reason at the top of this file: this module is
+ *  compiled into the backend's TypeScript program by its test suite, and api.ts
+ *  is browser code. */
+export type RiskBand = "PASS" | "AT_RISK" | "CRITICAL";
+
+/** One simulated fix's result. `Before` is the rail as it reads now, `After` is
+ *  the rail with THIS ONE fix applied and nothing else. */
+export interface PreflightRead {
+  scoreBefore: number;
+  riskBefore: RiskBand;
+  scoreAfter: number;
+  riskAfter: RiskBand;
+}
+
+/** One fix the engine can carry out, narrowed to what the panel renders.
+ *
+ *  `currentState`, `targetState` and `reason` are deliberately NOT on this type.
+ *  The wire object carries them and the demo panel could show them, but the
+ *  findings list directly above already states the same facts in the same panel,
+ *  and a type that cannot hold them is one fewer way for them to reach a render
+ *  path they do not belong on. */
+export interface IntentRead {
+  /** Stable machine key for this fix, e.g. `pin_receive_library`. Used as the
+   *  list key: it is unique per asset, which an array index is not. */
+  intent: string;
+  action: string;
+  severity: string;
+  /** Absent on a fix that applies to the asset rather than to one route. */
+  corridors?: string[];
+  preflight?: PreflightRead;
+}
+
+/** What this fix actually moves. Three answers, and the page renders a different
+ *  sentence for each — collapsing them to "improves / does not improve" is what
+ *  loses the honest case. */
+export type PreflightEffect = "band" | "score" | "none";
+
+export function preflightEffect(p: PreflightRead): PreflightEffect {
+  if (p.riskAfter !== p.riskBefore) return "band";
+  if (p.scoreAfter !== p.scoreBefore) return "score";
+  return "none";
+}
+
+/** The before-and-after in words. Rendered under the chips rather than instead
+ *  of them, and it is the fuller of the two: the chips show four values, this
+ *  says what they mean.
+ *
+ *  The "none" branch does not explain ITSELF — it says other findings hold the
+ *  numbers where they are, which is true whether the fix was worth nothing on
+ *  its own or worth something the band cap swallowed. Naming which of the two
+ *  happened would be this page asserting a mechanism it did not read. */
+export function preflightNote(p: PreflightRead): string {
+  switch (preflightEffect(p)) {
+    case "band":
+      return (
+        `Applying this one fix moves the score ${p.scoreBefore} → ${p.scoreAfter} and the band ` +
+        `${p.riskBefore} → ${p.riskAfter}.`
+      );
+    case "score":
+      return (
+        `Applying this one fix moves the score ${p.scoreBefore} → ${p.scoreAfter}. The band stays ` +
+        `${p.riskBefore}: it does not clear this rail on its own.`
+      );
+    default:
+      return (
+        `Applying this one fix moves nothing on its own — the score stays ${p.scoreBefore} and the ` +
+        `band stays ${p.riskBefore}. Other findings on this rail hold both where they are.`
+      );
+  }
+}
+
+/** The section's opening line: how many fixes were simulated, and how many of
+ *  them are worth anything by themselves. The second half is the honest half —
+ *  a count of fixes with no qualifier reads as a count of improvements. */
+export function preflightHeadline(intents: IntentRead[]): string {
+  const n = intents.length;
+  if (n === 0) {
+    return "The engine found nothing to fix on this rail in the latest read, so there is nothing to simulate.";
+  }
+  const movers = intents.filter((t) => t.preflight && preflightEffect(t.preflight) === "band").length;
+  const rules = "simulated against the same rules that produced the score above — before anyone signs anything.";
+  const head = n === 1 ? `1 fix, ${rules}` : `${n} fixes, each one ${rules}`;
+  if (movers === 0) {
+    return `${head} None of them moves the risk band on its own.`;
+  }
+  if (movers === n) {
+    return `${head} ${n === 1 ? "It moves" : "Each one moves"} the risk band on its own.`;
+  }
+  return `${head} ${movers} of them move${movers === 1 ? "s" : ""} the risk band alone; the rest do not.`;
+}
+
+/** What a pre-flight IS, in plain words, above the rows. A before-and-after
+ *  score with no account of where the second number came from is a projection,
+ *  and this page does not publish projections. */
+export const PREFLIGHT_NOTE =
+  "A pre-flight is a dry run of a fix. The engine takes out the findings that fix would resolve, " +
+  "puts in whatever the fixed configuration introduces in their place, and re-runs the same scoring " +
+  "rules — so the numbers below are computed exactly like the score above them. Nothing is signed " +
+  "and nothing is sent.";
+
+/** The ONE sentence a third-party panel gets about its pre-flights: how many
+ *  fixes exist, and that the page is not saying what they are.
+ *
+ *  Silence would be the worse failure in both directions — it would read either
+ *  as the engine having no fix for a live token, or as there being nothing here
+ *  to withhold. */
+export function fixableNote(n: number): string {
+  if (n === 0) {
+    return (
+      "The engine computed no applicable fix for this rail in the latest read. That is a statement " +
+      "about the fixes, not about the findings."
+    );
+  }
+  return (
+    `${n} of this rail's findings ${n === 1 ? "has" : "have"} a fix the engine can pre-flight: it ` +
+    `simulates the fixed configuration and re-scores the rail before anyone signs anything. The fixes ` +
+    `themselves — and what each one would be worth — are withheld here, for the same reason the ` +
+    `findings are. The score delta alone would name which weakness dominates this rail.`
   );
 }
 

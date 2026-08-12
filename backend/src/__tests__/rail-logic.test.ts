@@ -22,6 +22,7 @@ import {
   exposureTokenNote,
   exposureValue,
   findingsLine,
+  fixableNote,
   fleetLine,
   isDemoAsset,
   keyed,
@@ -29,6 +30,9 @@ import {
   metaLine,
   mintNote,
   parseDemoPins,
+  preflightEffect,
+  preflightHeadline,
+  preflightNote,
   priceLine,
   publicRead,
   routesOf,
@@ -43,7 +47,15 @@ import {
   verificationOf,
   withheldNote,
 } from "../../../frontend/src/rail-logic";
-import type { ExposureRead, RouteRead, UlnRead, WatchedRead } from "../../../frontend/src/rail-logic";
+import type {
+  ExposureRead,
+  IntentRead,
+  PreflightRead,
+  RiskBand,
+  RouteRead,
+  UlnRead,
+  WatchedRead,
+} from "../../../frontend/src/rail-logic";
 
 // The judge page's non-obvious logic, tested from the backend suite rather than
 // from a second test runner nobody would remember to run — the same reach into
@@ -560,6 +572,7 @@ describe("publicRead", () => {
     expect(publicRead([], [route({ uln: uln(QUORUM_4) }), route({ corridor: "A → C", uln: null })])).toEqual({
       findings: 0,
       corridors: 2,
+      fixable: 0,
       structural: [
         { corridor: "A → B", dvnCount: 4, sendLib: "default", receiveLib: "default" },
         { corridor: "A → C", dvnCount: null, sendLib: "default", receiveLib: "default" },
@@ -573,7 +586,69 @@ describe("publicRead", () => {
   });
 
   it("counts nothing as nothing, rather than as safety", () => {
-    expect(publicRead([], [])).toEqual({ findings: 0, corridors: 0, structural: [] });
+    expect(publicRead([], [])).toEqual({ findings: 0, corridors: 0, fixable: 0, structural: [] });
+  });
+
+  // ── the pre-flight, on the third-party path ────────────────────────────────
+  //
+  // The engine computes a before-and-after score for every fix it knows how to
+  // carry out. On a live third party's rail that is finding text twice over: the
+  // action names the weakness in words and the score delta names it in
+  // arithmetic — a fix worth +40 says which finding dominates that score. What
+  // publicRead is allowed to let through is the COUNT, which is the same class
+  // of already-published number as the finding count already on every tile.
+
+  /** Real-shaped intents, with the same prose the live endpoint serves so the
+   *  assertion is against the shape that actually arrives. */
+  const INTENTS = [
+    {
+      intent: "pin_receive_library",
+      action: "Pin the receive library to a specific version",
+      severity: "CRITICAL",
+      corridors: ["plume", "bera"],
+      preflight: { scoreBefore: 10, riskBefore: "CRITICAL" as const, scoreAfter: 50, riskAfter: "AT_RISK" as const },
+    },
+    {
+      intent: "transfer_ownership_to_multisig",
+      action: "Transfer OFT ownership to a multisig (e.g. Gnosis Safe)",
+      severity: "HIGH",
+      preflight: { scoreBefore: 10, riskBefore: "CRITICAL" as const, scoreAfter: 25, riskAfter: "CRITICAL" as const },
+    },
+  ];
+
+  it("counts the fixes and never states one", () => {
+    const read = publicRead(REASONS, [route({ uln: uln(QUORUM_4) })], INTENTS);
+    expect(read.fixable).toBe(2);
+    const serialised = JSON.stringify(read);
+    for (const leak of [
+      "pin_receive_library",
+      "Pin the receive library",
+      "transfer_ownership_to_multisig",
+      "multisig",
+      "scoreAfter",
+      "AT_RISK",
+      "50",
+    ]) {
+      expect(serialised, `publicRead leaked "${leak}"`).not.toContain(leak);
+    }
+  });
+
+  it("still carries counts and structure and nothing else, with intents handed in", () => {
+    // The same whole-value assertion as above, on the path that has something to
+    // leak. A field added to PublicRead later has to break this on the way in.
+    expect(publicRead(REASONS, [], INTENTS)).toEqual({
+      findings: 2,
+      corridors: 0,
+      fixable: 2,
+      structural: [],
+    });
+  });
+
+  it("treats an instance that serves no intents as no fixes, not as no findings", () => {
+    // Two different zeroes. An older instance serving no `tis` array still has
+    // its findings counted; nothing here may fold one count into the other.
+    expect(publicRead(REASONS, []).fixable).toBe(0);
+    expect(publicRead(REASONS, []).findings).toBe(2);
   });
 });
 
@@ -631,6 +706,172 @@ describe("findingsLine, countsLine and withheldNote", () => {
       expect(note).not.toMatch(/0x[0-9a-fA-F]{2,}/);
       for (const name of ["Alpha", "Bravo", "Charlie", "Delta"]) {
         expect(note).not.toContain(name);
+      }
+    }
+  });
+});
+
+// ── the pre-flight: what a fix is worth, and when it is worth nothing ─────────
+//
+// This is the one forward-looking thing on the page, so it is the one place the
+// page can promise something. The cases below are the ones that keep it from
+// promising: the live instance serves fixes that move the score and not the
+// band, and fixes that move neither, and a row that renders those the same way
+// as a real improvement is the whole feature going quietly dishonest.
+//
+// The numbers here are the ones the live endpoint actually served on 2026-08-12,
+// so the flat cases are not hypothetical shapes invented to have something to
+// test — FLR's send-library fix really does read 25 → 25.
+
+describe("preflightEffect", () => {
+  const p = (
+    scoreBefore: number,
+    riskBefore: RiskBand,
+    scoreAfter: number,
+    riskAfter: RiskBand
+  ): PreflightRead => ({ scoreBefore, riskBefore, scoreAfter, riskAfter });
+
+  it("calls it a band move when the band moves", () => {
+    expect(preflightEffect(p(75, "AT_RISK", 95, "PASS"))).toBe("band");
+    expect(preflightEffect(p(10, "CRITICAL", 50, "AT_RISK"))).toBe("band");
+  });
+
+  it("calls it a score move when only the score moves", () => {
+    // DINERO's DVN-redundancy fix: +10, still CRITICAL.
+    expect(preflightEffect(p(10, "CRITICAL", 20, "CRITICAL"))).toBe("score");
+  });
+
+  it("calls it nothing when nothing moves", () => {
+    // FLR's send-library fix. The band cap already had the score at 25 and a
+    // CRITICAL still stands after the fix, so both numbers sit still.
+    expect(preflightEffect(p(25, "CRITICAL", 25, "CRITICAL"))).toBe("none");
+  });
+
+  it("reads the BAND first, so a band move with a flat score is still a move", () => {
+    // Not reachable on today's fleet, and exactly why it needs a case: an
+    // implementation that checked the score first would call this "none" and
+    // the page would print "moves nothing" over a rail that just cleared.
+    expect(preflightEffect(p(84, "AT_RISK", 84, "PASS"))).toBe("band");
+  });
+});
+
+describe("preflightNote", () => {
+  it("states both numbers when the band moves", () => {
+    const note = preflightNote({ scoreBefore: 75, riskBefore: "AT_RISK", scoreAfter: 95, riskAfter: "PASS" });
+    expect(note).toContain("75 → 95");
+    expect(note).toContain("AT_RISK → PASS");
+  });
+
+  it("says the band did NOT move, rather than only showing the score going up", () => {
+    const note = preflightNote({ scoreBefore: 10, riskBefore: "CRITICAL", scoreAfter: 20, riskAfter: "CRITICAL" });
+    expect(note).toContain("10 → 20");
+    expect(note).toContain("The band stays CRITICAL");
+    expect(note).toContain("does not clear this rail on its own");
+    // …and never renders the unchanged band as if it had moved.
+    expect(note).not.toContain("CRITICAL → CRITICAL");
+  });
+
+  it("says plainly that a fix moving neither number moves neither", () => {
+    const note = preflightNote({ scoreBefore: 25, riskBefore: "CRITICAL", scoreAfter: 25, riskAfter: "CRITICAL" });
+    expect(note).toContain("moves nothing on its own");
+    expect(note).toContain("the score stays 25");
+    expect(note).toContain("band stays CRITICAL");
+    // The arrow is the page's symbol for movement. A flat pre-flight must not
+    // borrow it — "25 → 25" reads as progress at a glance, which is the glance
+    // this row is built for.
+    expect(note).not.toContain("→");
+  });
+
+  it("does not explain WHY a flat fix is flat", () => {
+    // Two different causes produce the identical payload: a fix that resolved
+    // nothing scoreable, and a fix whose gain the band cap swallowed. The
+    // instance serves neither answer, so the page states the effect and stops.
+    const note = preflightNote({ scoreBefore: 25, riskBefore: "CRITICAL", scoreAfter: 25, riskAfter: "CRITICAL" });
+    for (const mechanism of ["cap", "clamp", "deduction", "because"]) {
+      expect(note, `preflightNote asserted a mechanism it did not read: ${mechanism}`).not.toContain(
+        mechanism
+      );
+    }
+  });
+});
+
+describe("preflightHeadline", () => {
+  const intent = (over: Partial<IntentRead> = {}): IntentRead => ({
+    intent: "pin_receive_library",
+    action: "Pin the receive library to a specific version",
+    severity: "CRITICAL",
+    ...over,
+  });
+  const moves = intent({
+    intent: "moves",
+    preflight: { scoreBefore: 10, riskBefore: "CRITICAL", scoreAfter: 50, riskAfter: "AT_RISK" },
+  });
+  const flat = intent({
+    intent: "flat",
+    preflight: { scoreBefore: 10, riskBefore: "CRITICAL", scoreAfter: 25, riskAfter: "CRITICAL" },
+  });
+
+  it("says there is nothing to simulate when there is nothing to fix", () => {
+    const line = preflightHeadline([]);
+    expect(line).toContain("nothing to simulate");
+    // A PASS rail must not read as a rail whose fixes are being hidden.
+    expect(line).not.toContain("withheld");
+  });
+
+  it("counts the fixes and says how many are worth something alone", () => {
+    expect(preflightHeadline([moves])).toContain("1 fix,");
+    expect(preflightHeadline([moves])).toContain("It moves the risk band on its own");
+    expect(preflightHeadline([moves, flat])).toContain("2 fixes,");
+    expect(preflightHeadline([moves, flat])).toContain("1 of them moves the risk band alone; the rest do not");
+    expect(preflightHeadline([moves, moves])).toContain("Each one moves the risk band on its own");
+  });
+
+  it("says NONE of them moves the band when none of them does", () => {
+    // The honest half. A bare count of fixes reads as a count of improvements,
+    // and on a rail like this one every fix would be worth nothing by itself.
+    expect(preflightHeadline([flat, flat])).toContain("None of them moves the risk band on its own");
+  });
+
+  it("does not count an intent the instance never simulated as one that moves the band", () => {
+    // `preflight` is optional on the wire. Absent is not zero-delta and it is
+    // certainly not a band move.
+    const unsimulated = intent({ intent: "unsimulated" });
+    expect(preflightHeadline([unsimulated])).toContain("None of them moves the risk band");
+  });
+});
+
+describe("fixableNote", () => {
+  it("distinguishes no fixes from withheld fixes", () => {
+    const none = fixableNote(0);
+    expect(none).toContain("no applicable fix");
+    expect(none).toContain("not about the findings");
+    expect(none).not.toContain("withheld");
+  });
+
+  it("states the count, and states that everything else is being held back", () => {
+    expect(fixableNote(1)).toContain("1 of this rail's findings has");
+    expect(fixableNote(4)).toContain("4 of this rail's findings have");
+    expect(fixableNote(4)).toContain("withheld here");
+    // The reason the delta is withheld too, said out loud: a score delta is the
+    // finding stated as arithmetic.
+    expect(fixableNote(4)).toContain("which weakness dominates this rail");
+  });
+
+  it("names no fix, no route, no operator and no number but the count", () => {
+    for (const n of [0, 1, 9]) {
+      const note = fixableNote(n);
+      expect(note).not.toMatch(/0x[0-9a-fA-F]{2,}/);
+      for (const leak of [
+        "Alpha",
+        "Bravo",
+        "pin_receive_library",
+        "receive library",
+        "multisig",
+        "CRITICAL",
+        "AT_RISK",
+        "→",
+      ]) {
+        expect(note, `fixableNote leaked "${leak}"`).not.toContain(leak);
       }
     }
   });
@@ -1227,6 +1468,45 @@ describe("the rail page uses this module", () => {
     // duplicates — one explains the page, one carries that asset's counts.
     expect(src).toContain("withheldNote(");
   });
+
+  // ── the pre-flight is actually on the page, on the right panel ─────────────
+  //
+  // The engine has computed a before-and-after score for every fixable finding
+  // since the rules landed, and the page rendered none of it — the single most
+  // useful thing the product does, invisible, with no test able to notice
+  // because nothing was missing, only absent. These three pin it down.
+
+  it("renders the pre-flight on the demo panel, with the honest note attached", () => {
+    expect(src).toContain("<PreflightBlock intents={w.assessment?.tis ?? []} />");
+    // The delta chips and the sentence ship together. The chips are a picture of
+    // the sentence and are hidden from assistive technology on that basis; a
+    // panel that kept the chips and dropped the sentence would leave a screen
+    // reader with nothing at all, and a sighted reader with an unlabelled arrow.
+    expect(src).toContain("preflightNote(t.preflight)");
+    expect(src).toContain("<PreflightDelta p={t.preflight} />");
+    expect(src).toContain('aria-hidden="true"');
+    // Read from this cycle's assessment, never from the recorded verdict — the
+    // pre-flight's scoreBefore has to be the score in the panel's own chip, and
+    // a verdict is only written on drift so it can be older than both.
+    expect(src).not.toContain("latest?.pdr?.tis");
+    expect(src).not.toContain("attested?.tis");
+  });
+
+  it("gives a third-party panel the count and not the delta", () => {
+    expect(src).toContain("fixableNote(read.fixable)");
+    // The reduction happens inside publicRead, so what crosses into RailBody is
+    // an integer. Counting the array at the call site would put every action and
+    // every delta in scope inside the component whose job is not to show them.
+    expect(src).toContain("publicRead(w.assessment?.reasons ?? [], routes, w.assessment?.tis ?? [])");
+  });
+
+  it("keeps the two panels parallel, so the omission reads as an omission", () => {
+    // Both panels carry a section under the same heading. A third-party panel
+    // that simply had no such section would read as a rail with no fixes rather
+    // than as a rail whose fixes are not being published.
+    const headings = src.match(/<SectionLabel>Remediation pre-flight<\/SectionLabel>/g) ?? [];
+    expect(headings, "both the demo and the third-party panel state this section").toHaveLength(2);
+  });
 });
 
 // ── imported and never used: the defect class, not the two defects ───────────
@@ -1354,6 +1634,18 @@ describe("a third-party asset's panel cannot reach a DVN name", () => {
   // scope on this path at all, so reaching any of these fields requires first
   // widening a prop type — a visible change this file would also have to be
   // edited to allow.
+  // The pre-flight added four more, and the LAST four are the non-obvious ones.
+  // `.action` names the weakness in words, which is the same class of leak as
+  // `.reason`. The score fields are the subtle one: a delta is the finding
+  // stated as arithmetic — a fix worth +40 on a rail scoring 10 says which
+  // weakness dominates that score, and a reader with the rule set (it is public)
+  // can work back from it. So the whole before-and-after stays on the demo path,
+  // and the third-party panel renders `fixableNote(read.fixable)` — an integer.
+  //
+  // `.action` carries the dot deliberately. Bare "action" is a substring of
+  // "transaction", which this page has every business saying in prose, and a
+  // guard that fails on the page's own vocabulary gets deleted rather than
+  // obeyed. The dotted form matches the property access, which is the leak.
   const FORBIDDEN = [
     "reasons",
     "reason",
@@ -1365,6 +1657,14 @@ describe("a third-party asset's panel cannot reach a DVN name", () => {
     "DvnRow",
     ".detail",
     "assessment",
+    ".action",
+    "scoreBefore",
+    "scoreAfter",
+    "riskBefore",
+    "riskAfter",
+    "PreflightDelta",
+    "PreflightBlock",
+    "IntentRow",
   ];
 
   it("renders none of the fields that carry a finding or a verifier's name", () => {

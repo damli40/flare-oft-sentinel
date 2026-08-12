@@ -10,6 +10,7 @@ import type { SentinelStatus, SentinelVerdict, WatchedStatus } from "../api.ts";
 import {
   EXPOSURE_NOTE,
   META_CAVEAT,
+  PREFLIGHT_NOTE,
   WITHHELD_LINE,
   ago,
   columnsFor,
@@ -20,11 +21,15 @@ import {
   exposureSource,
   exposureTokenNote,
   findingsLine,
+  fixableNote,
   fleetLine,
   isDemoAsset,
   keyed,
   metaLine,
   mintNote,
+  preflightEffect,
+  preflightHeadline,
+  preflightNote,
   publicRead,
   routesOf,
   short,
@@ -35,7 +40,15 @@ import {
   verificationOf,
   withheldNote,
 } from "../rail-logic.ts";
-import type { AssetIdentity, ExposureRead, PublicRead, RouteRead, StructuralRoute } from "../rail-logic.ts";
+import type {
+  AssetIdentity,
+  ExposureRead,
+  IntentRead,
+  PreflightRead,
+  PublicRead,
+  RouteRead,
+  StructuralRoute,
+} from "../rail-logic.ts";
 
 // ── Page constants ────────────────────────────────────────────────────────────
 // One judge-facing page: what the Sentinel instance currently reads off the
@@ -111,6 +124,17 @@ function BandChip({ band }: { band: Band | null }) {
       {band ?? "PENDING"}
     </span>
   );
+}
+
+/** The page's one severity palette. Extracted because two blocks in the demo
+ *  panel now print a severity word — the findings list and the pre-flight rows —
+ *  and a second copy of this ternary is how a CRITICAL ends up amber in one of
+ *  them. Anything the engine can emit that is not CRITICAL or HIGH falls to the
+ *  scan colour, which is what the findings list already did. */
+function severityColor(severity: string): string {
+  if (severity === "CRITICAL") return "var(--critical)";
+  if (severity === "HIGH") return "var(--warn)";
+  return "var(--scan)";
 }
 
 /** Newest verdict for one OFT, optionally only the ones that were attested. */
@@ -305,6 +329,132 @@ function ExposureBlock({
   );
 }
 
+// ── What a fix would be worth: the pre-flight ─────────────────────────────────
+//
+// DEMO ASSET ONLY. See the disclosure note above the pre-flight section in
+// rail-logic.ts: the action, and the score delta just as much as the action, are
+// finding text. A third-party panel gets fixableNote(read.fixable) instead — the
+// count, and a plain statement that the rest is being withheld.
+
+/** The before-and-after, as a picture. Two band chips and two scores, in the
+ *  order the sentence beneath them reads.
+ *
+ *  Hidden from assistive technology, on the same principle as the band chip's
+ *  coloured dot: it carries the same four values as preflightNote() directly
+ *  below it and nothing those words do not already say, so announcing both would
+ *  read the delta out twice. The sentence is the accessible version, and it is
+ *  the better one — it says whether the movement means anything. */
+function PreflightDelta({ p }: { p: PreflightRead }) {
+  const moved = preflightEffect(p) !== "none";
+  const scoreStyle = { fontFamily: "var(--mono)", fontSize: 13.5, fontWeight: 600 } as const;
+  return (
+    <div
+      aria-hidden="true"
+      style={{ display: "flex", alignItems: "center", gap: 11, flexWrap: "wrap", marginTop: 11 }}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <BandChip band={p.riskBefore} />
+        <span style={{ ...scoreStyle, color: "var(--text-2)" }}>{p.scoreBefore}</span>
+      </span>
+      <span style={{ fontFamily: "var(--mono)", fontSize: 13, color: moved ? "var(--scan)" : "var(--faint)" }}>
+        →
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <BandChip band={p.riskAfter} />
+        <span style={{ ...scoreStyle, color: moved ? "var(--text)" : "var(--faint)" }}>{p.scoreAfter}</span>
+      </span>
+      {/* Said on the row as well as in the sentence. Two identical chips with an
+          arrow between them look like movement at a glance, and a glance is what
+          this row is built for. */}
+      {!moved && (
+        <span
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: 10,
+            letterSpacing: ".14em",
+            textTransform: "uppercase",
+            color: "var(--faint)",
+          }}
+        >
+          no change
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** One fix: how bad the thing it fixes is, what it does, where it applies, and
+ *  what it is worth. */
+function IntentRow({ t }: { t: IntentRead }) {
+  const corridors = t.corridors ?? [];
+  return (
+    <div style={{ padding: "13px 0", borderBottom: "1px solid var(--border-soft)" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span className="to-dvn-st" style={{ flex: "none", color: severityColor(t.severity) }}>
+          {t.severity}
+        </span>
+        <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.4 }}>{t.action}</div>
+      </div>
+
+      {/* Which routes this fix touches. A fix with no corridor list is not a fix
+          with no scope — it is one that applies to the asset itself, and saying
+          so is the difference between "nine corridors" and "the contract". */}
+      {corridors.length > 0 ? (
+        <div className="to-corrs" style={{ marginTop: 10 }}>
+          {keyed(corridors, (c) => c).map(({ key, item: c }) => (
+            <span className="to-corr" key={key}>
+              {c}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--faint)", marginTop: 10 }}>
+          applies to the whole asset, not to one corridor
+        </div>
+      )}
+
+      {t.preflight ? (
+        <>
+          <PreflightDelta p={t.preflight} />
+          <div style={{ fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5, marginTop: 9 }}>
+            {preflightNote(t.preflight)}
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: 12.5, color: "var(--faint)", lineHeight: 1.5, marginTop: 10 }}>
+          This instance did not report a pre-flight for this fix, so no before-and-after is shown
+          here. An unsimulated fix is never rendered as one that changes nothing — those are
+          opposite claims.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreflightBlock({ intents }: { intents: IntentRead[] }) {
+  return (
+    <div>
+      <SectionLabel>Remediation pre-flight</SectionLabel>
+      <div style={{ fontSize: 13.5, color: "var(--text-2)", lineHeight: 1.55 }}>
+        {preflightHeadline(intents)}
+      </div>
+      {intents.length > 0 && (
+        <>
+          <div style={{ fontSize: 12.5, color: "var(--faint)", lineHeight: 1.5, marginTop: 8 }}>
+            {PREFLIGHT_NOTE}
+          </div>
+          {/* Server order, which the engine already sorts worst-severity first.
+              Re-ranking them here by score gain would be this page inventing a
+              priority the attested record does not carry. */}
+          {keyed(intents, (t) => t.intent).map(({ key, item }) => (
+            <IntentRow key={key} t={item} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Findings({ reasons }: { reasons: string[] }) {
   if (reasons.length === 0) {
     return (
@@ -446,6 +596,20 @@ function RailBody({ id, read, note, exposure, chain }: { id: AssetIdentity; read
         </div>
       </div>
 
+      {/* A COUNT, and a statement that the rest is being held back. The demo
+          panel prints each fix, where it applies and what it moves the score
+          and the band to; every number in that is withheld here, the delta
+          included — a fix worth +40 names which weakness dominates this rail,
+          which is the finding stated as arithmetic. `read.fixable` is an
+          integer computed inside publicRead(), so nothing wordier than a count
+          crosses into this component. */}
+      <div>
+        <SectionLabel>Remediation pre-flight</SectionLabel>
+        <div style={{ fontSize: 12.5, color: "var(--faint)", lineHeight: 1.55 }}>
+          {fixableNote(read.fixable)}
+        </div>
+      </div>
+
       <div>
         <SectionLabel>Corridors</SectionLabel>
         {read.structural.length > 0 ? (
@@ -512,18 +676,7 @@ function DemoBody({
                   borderBottom: "1px solid var(--border-soft)",
                 }}
               >
-                <span
-                  className="to-dvn-st"
-                  style={{
-                    flex: "none",
-                    color:
-                      f.severity === "CRITICAL"
-                        ? "var(--critical)"
-                        : f.severity === "HIGH"
-                        ? "var(--warn)"
-                        : "var(--scan)",
-                  }}
-                >
+                <span className="to-dvn-st" style={{ flex: "none", color: severityColor(f.severity) }}>
                   {f.severity}
                 </span>
                 <div>
@@ -539,6 +692,15 @@ function DemoBody({
           <Findings reasons={w.assessment?.reasons ?? []} />
         )}
       </div>
+
+      {/* Read from `assessment.tis`, not from the recorded verdict. The two are
+          not interchangeable: `assessment` is this cycle's read, and a
+          pre-flight's `scoreBefore` is the score in the chip at the top of this
+          panel — which also comes from `assessment`. They are fields of one
+          object returned by one call, so they cannot disagree about which cycle
+          they describe. A verdict, which is only written on drift, can be older
+          than both; that is the trap verdictIsStale() exists for above. */}
+      <PreflightBlock intents={w.assessment?.tis ?? []} />
 
       <RouteList routes={routes} />
 
@@ -757,7 +919,12 @@ function DetailPanel({
           // scalars, so nothing inside RailBody can reach a reason or a name
           // even by accident.
           id={{ address: w.address, chainId: w.chainId, lastSnapshotAt: w.lastSnapshotAt }}
-          read={publicRead(w.assessment?.reasons ?? [], routes)}
+          // The intents go INTO publicRead and a single integer comes out. The
+          // narrowing is the function's job, not this call site's — handing
+          // RailBody the array and counting it there would put every action,
+          // every before/after state and every score delta in scope inside the
+          // one component whose entire job is not to show them.
+          read={publicRead(w.assessment?.reasons ?? [], routes, w.assessment?.tis ?? [])}
           note={structuralNote(verificationOf(routes))}
           exposure={w.exposure ?? null}
           chain={chainNameFor(w.chainId)}
